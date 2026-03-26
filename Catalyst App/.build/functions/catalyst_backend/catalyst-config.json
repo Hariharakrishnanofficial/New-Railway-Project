@@ -1,0 +1,19 @@
+{
+  "deployment": {
+    "name": "catalyst_backend",
+    "stack": "python_3_9",
+    "type": "advancedio",
+    "env_variables": {
+      "APP_ENVIRONMENT": "production",
+      "CORS_ALLOWED_ORIGINS": "https://railway-ticketing-app.onslate.in,http://localhost:3001,http://localhost:5173",
+
+      "ADMIN_SETUP_KEY": "RailAdmin@2026",
+
+      "GEMINI_API_KEY": "AIzaSyBDP3x55LsSFJbhyjvrhXKDslwQ1rVBc4Y",
+      "GEMINI_MODEL": "gemini-2.0-flash"
+    }
+  },
+  "execution": {
+    "main": "app.py"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "targets": [
+      "catalyst_backend"
+    ],
+    "ignore": [],
+    "source": "functions"
+  },
+  "client": {
+    "source": "catalyst-frontend/build"
+  }
+}

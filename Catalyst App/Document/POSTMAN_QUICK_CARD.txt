@@ -1,0 +1,204 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    POSTMAN QUICK REFERENCE CARD                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ENDPOINT 1: REGISTER USER (NO TOKEN NEEDED)
+═══════════════════════════════════════════════════════════════════════════════
+
+📍 URL
+   http://localhost:3000/server/catalyst_backend/api/auth/register
+
+📌 METHOD
+   POST
+
+📋 HEADERS
+   Content-Type: application/json
+
+📦 BODY (raw JSON)
+   {
+     "Full_Name": "John Doe",
+     "Email": "john.doe@railway.com",
+     "Password": "Password123!",
+     "Phone_Number": "9876543210",
+     "Address": "123 Main Street, City"
+   }
+
+✅ EXPECTED RESPONSE (Status 201)
+   {
+     "success": true,
+     "status": "created",
+     "data": {
+       "message": "User registered successfully",
+       "user_id": "123456789",
+       "email": "john.doe@railway.com",
+       "role": "User"
+     }
+   }
+
+❌ ERROR RESPONSE (Status 409)
+   {
+     "success": false,
+     "error": "Registration failed",
+     "details": "Email already registered"
+   }
+
+═══════════════════════════════════════════════════════════════════════════════
+
+ENDPOINT 2: SIGN IN (NO TOKEN NEEDED)
+═══════════════════════════════════════════════════════════════════════════════
+
+📍 URL
+   http://localhost:3000/server/catalyst_backend/api/auth/signin
+
+📌 METHOD
+   POST
+
+📋 HEADERS
+   Content-Type: application/json
+
+📦 BODY (raw JSON)
+   {
+     "Email": "john.doe@railway.com",
+     "Password": "Password123!"
+   }
+
+✅ EXPECTED RESPONSE (Status 200)
+   {
+     "success": true,
+     "status": "authenticated",
+     "data": {
+       "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+       "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+       "user": {
+         "User_ID": "123456789",
+         "Email": "john.doe@railway.com",
+         "Full_Name": "John Doe",
+         "Role": "User"
+       }
+     }
+   }
+
+📌 COPY THE access_token - YOU'LL NEED IT FOR NEXT REQUESTS
+
+═══════════════════════════════════════════════════════════════════════════════
+
+ENDPOINT 3: GET PROFILE (TOKEN REQUIRED)
+═══════════════════════════════════════════════════════════════════════════════
+
+📍 URL
+   http://localhost:3000/server/catalyst_backend/api/auth/profile
+
+📌 METHOD
+   GET
+
+📋 HEADERS (⚠️ INCLUDES TOKEN)
+   Content-Type: application/json
+   Authorization: Bearer <access_token_from_signin>
+
+   Example:
+   Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
+
+📦 BODY
+   (Leave empty for GET request)
+
+✅ EXPECTED RESPONSE (Status 200)
+   {
+     "success": true,
+     "data": {
+       "User_ID": "123456789",
+       "Email": "john.doe@railway.com",
+       "Full_Name": "John Doe",
+       "Phone_Number": "9876543210",
+       "Address": "123 Main Street, City",
+       "Role": "User",
+       "Account_Status": "Active"
+     }
+   }
+
+═══════════════════════════════════════════════════════════════════════════════
+
+TOKEN FLOW
+═════════════════════════════════════════════════════════════════════════════
+
+  Register User (No Token)
+        ↓
+  ✅ Success - User Created
+        ↓
+  Sign In (No Token)
+        ↓
+  ✅ Success - Get access_token
+        ↓
+  Copy access_token
+        ↓
+  Use in "Authorization: Bearer <token>" header
+        ↓
+  Access Protected Endpoints (Profile, Settings, etc.)
+
+═════════════════════════════════════════════════════════════════════════════
+
+SAMPLE USERS TO CREATE
+═════════════════════════════════════════════════════════════════════════════
+
+User 1:
+{
+  "Full_Name": "Alice Smith",
+  "Email": "alice@railway.com",
+  "Password": "Alice123!",
+  "Phone_Number": "9876543211",
+  "Address": "Mumbai, India"
+}
+
+User 2:
+{
+  "Full_Name": "Bob Wilson",
+  "Email": "bob@railway.com",
+  "Password": "Bob456!",
+  "Phone_Number": "9876543212",
+  "Address": "Delhi, India"
+}
+
+Admin User (role will be Admin):
+{
+  "Full_Name": "Admin",
+  "Email": "admin@admin.com",
+  "Password": "Admin789!",
+  "Phone_Number": "9876543213",
+  "Address": "Admin Office"
+}
+
+═════════════════════════════════════════════════════════════════════════════
+
+POSTMAN SETUP CHECKLIST
+═════════════════════════════════════════════════════════════════════════════
+
+☑ Step 1: Create new request (+ button)
+☑ Step 2: Set method to POST
+☑ Step 3: Paste URL
+☑ Step 4: Click Headers tab
+☑ Step 5: Add Content-Type: application/json
+☑ Step 6: Click Body tab
+☑ Step 7: Select "raw" radio button
+☑ Step 8: Select "JSON" from dropdown
+☑ Step 9: Paste JSON body
+☑ Step 10: Click Send button
+
+✅ Should see status 201 and response with "success": true
+
+═════════════════════════════════════════════════════════════════════════════
+
+KEY POINTS
+═════════════════════════════════════════════════════════════════════════════
+
+🔓 Registration & SignIn = PUBLIC (No token needed)
+🔐 Profile, Settings, etc = PROTECTED (Token required)
+
+Each email can register only ONCE
+Password must be at least 6 characters
+Email must contain @ symbol
+
+After signin, use the access_token for protected endpoints
+
+═════════════════════════════════════════════════════════════════════════════
+
+Ready? Start with POSTMAN_STEP_BY_STEP.md for detailed instructions!
+

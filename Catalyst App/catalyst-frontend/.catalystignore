@@ -1,0 +1,17 @@
+# Node modules - not needed for deployment (build output is used)
+node_modules/
+
+# Source files - not needed (build output is used)
+src/
+
+# Development files
+.env.development
+*.log
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/

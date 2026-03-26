@@ -1,0 +1,127 @@
+# Function Error Fixes - Auth CRUD System
+
+## Issue
+Generic error message "unable to serve the request" when testing POST /api/auth/register endpoint in Postman.
+
+## Root Causes Identified & Fixed
+
+### 1. **Lazy Service Initialization** 
+- **File**: `services/auth_crud_service.py`
+- **Problem**: `AuthCRUDService.__init__()` was eagerly accessing `TABLES['users']` at import time, potentially causing issues during module loading
+- **Fix**: Changed to lazy-loaded property that only accesses `TABLES` when actually used
+```python
+@property
+def users_table(self):
+    """Lazy load users table name"""
+    if self._users_table is None:
+        self._users_table = TABLES.get('users', 'Users')
+    return self._users_table
+```
+
+### 2. **Missing CloudScale Error Handling**
+- **Files**: `services/auth_crud_service.py`, `core/exceptions.py`
+- **Problem**: When CloudScale database calls failed, errors weren't captured or properly communicated to client
+- **Fix**: 
+  - Wrapped all `zoho_repo` calls in try-except blocks
+  - Enhanced exception classes to include "details" field for debugging
+  - All methods now catch generic exceptions and re-raise as specific RailwayException with details
+
+**Enhanced exceptions** (`core/exceptions.py`):
+```python
+class RailwayException(Exception):
+    def __init__(self, message: str, status_code: int = 400, details: str = None):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.details = details
+
+    def to_response(self) -> dict:
+        response = {"success": False, "error": self.message}
+        if self.details:
+            response["details"] = self.details
+        return response
+```
+
+### 3. **CRUD Methods Error Handling**
+- **File**: `services/auth_crud_service.py`
+- **Updated Methods**:
+  - `create_user()` - Wraps duplicate check + record creation in try-except
+  - `signin()` - Wraps get_records + token generation in try-except
+  - `get_user_profile()` - Wraps get_record in try-except
+  - `update_profile()` - Wraps get_record + update in try-except
+  - `change_password()` - Wraps get_record + update in try-except
+  - `delete_account()` - Wraps get_record + delete in try-except
+  - `deactivate_account()` - Wraps get_record + update in try-except
+
+**Pattern**:
+```python
+try:
+    # CloudScale operations
+    result = zoho_repo.operation()
+    # validation and return
+except RailwayException:
+    raise  # Re-raise app-specific exceptions
+except Exception as e:
+    logger.exception(f"Operation failed: {e}")
+    raise SpecificException("Human-friendly message", details=str(e))
+```
+
+## API Response Format
+
+### Success Response (201)
+```json
+{
+    "success": true,
+    "status": "created",
+    "data": {
+        "message": "User registered successfully",
+        "user_id": "123456",
+        "email": "user@example.com",
+        "role": "User"
+    }
+}
+```
+
+### Error Response (400/401/500)
+```json
+{
+    "success": false,
+    "error": "Registration failed",
+    "details": "Email already registered"
+}
+```
+
+The `details` field will contain specific CloudScale/database error messages for debugging.
+
+## Testing in Postman
+
+### Registration (POST)
+- **URL**: `http://localhost:3000/server/catalyst_backend/api/auth/register`
+- **Body**:
+```json
+{
+    "Full_Name": "John Doe",
+    "Email": "john@example.com",
+    "Password": "password123"
+}
+```
+- **Expected**: 201 with success: true
+- **If Error**: Response will include `details` field with specific reason
+
+### SignIn (POST)
+- **URL**: `http://localhost:3000/server/catalyst_backend/api/auth/signin`
+- **Body**:
+```json
+{
+    "email": "john@example.com",
+    "password": "password123"
+}
+```
+- **Expected**: 200 with access_token
+
+## Files Modified
+1. `functions/catalyst_backend/core/exceptions.py` - Enhanced exception handling
+2. `functions/catalyst_backend/services/auth_crud_service.py` - Added error handling to all CRUD methods
+
+## Deployment
+Simply deploy updated code to Catalyst. The changes are backward compatible and only add better error reporting.

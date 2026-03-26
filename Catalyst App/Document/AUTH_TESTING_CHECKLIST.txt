@@ -1,0 +1,48 @@
+TESTING CHECKLIST - Auth CRUD Fixes
+====================================
+
+After deploying the fixes, test the following:
+
+1. REGISTRATION ENDPOINT
+   [ ] POST /api/auth/register with valid user → 201 success
+   [ ] POST with duplicate email → 400 with details field showing "Email already registered"
+   [ ] POST with missing fields → 400 with details field showing which fields are required
+   [ ] POST with short password (< 6 chars) → 400 with details showing requirement
+   [ ] POST with invalid email (no @) → 400 with details showing invalid format
+
+2. SIGNIN ENDPOINT
+   [ ] POST /api/auth/signin with correct credentials → 200 with access_token
+   [ ] POST with wrong password → 401 with "Invalid email or password"
+   [ ] POST with non-existent email → 401 with "Invalid email or password"
+   [ ] POST with missing fields → 400 with details showing required fields
+
+3. PROFILE ENDPOINTS (protected)
+   [ ] GET /api/auth/profile/{user_id} with valid token → 200 with user data
+   [ ] GET with invalid token → 401 "Authentication required"
+   [ ] PUT /api/auth/profile/{user_id} with valid updates → 200 success
+   [ ] PUT with invalid user_id → 404 "User not found"
+
+4. PASSWORD CHANGE (protected)
+   [ ] POST /api/auth/change-password with correct old password → 200 success
+   [ ] POST with incorrect old password → 401 "Old password is incorrect"
+   [ ] POST with same old and new password → 400 with details
+   [ ] POST with short new password → 400 with details
+
+5. ACCOUNT MANAGEMENT (protected)
+   [ ] POST /api/auth/deactivate-account → 200, account status changes to Inactive
+   [ ] POST /api/auth/delete-account → 200, account permanently deleted
+   [ ] Both require password confirmation
+
+6. ERROR RESPONSE FORMAT
+   [ ] All errors include "error" field with human-readable message
+   [ ] All errors include "details" field with technical/CloudScale specifics (when applicable)
+   [ ] All errors include "success": false
+   [ ] No "unable to serve the request" generic errors
+
+NOTES:
+------
+- Use Postman for testing all endpoints
+- Set Content-Type: application/json on all requests
+- Use Authorization: Bearer {token} header for protected endpoints
+- Sample test user: john.doe@railway.com / password123
+- Admin test user: admin@admin.com / password123

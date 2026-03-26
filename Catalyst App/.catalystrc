@@ -1,0 +1,48 @@
+{
+  "defaults": {
+    "project": 2,
+    "env": 1
+  },
+  "actives": {
+    "project": 2,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "31207000000011084",
+      "name": "Railway-Ticketing-System",
+      "domain": {
+        "id": "50039510865",
+        "name": "railway-ticketing-system-60066581545.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60066581545",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    },
+    {
+      "idx": 2,
+      "id": "31207000000078061",
+      "name": "Smart-Railway-App",
+      "domain": {
+        "id": "50040314309",
+        "name": "smart-railway-app-60066581545.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60066581545",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}

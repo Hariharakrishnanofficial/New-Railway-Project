@@ -1,0 +1,47 @@
+[2026-03-22 12:53:33.744 AM] [34mdebug[39m:    
+[2026-03-22 12:53:33.756 AM] [34mdebug[39m:    ----------------------------------------------------------------------
+[2026-03-22 12:53:33.758 AM] [34mdebug[39m:    [1mCommand:      [22mC:\Program Files\nodejs\node.exe C:\Users\Hariharan krishnan S\AppData\Roaming\npm\node_modules\zcatalyst-cli\lib\bin\catalyst.js serve --verbose
+[2026-03-22 12:53:33.759 AM] [34mdebug[39m:    [1mCLI Version:  [22m1.25.0
+[2026-03-22 12:53:33.760 AM] [34mdebug[39m:    [1mPlatform:     [22mwin32
+[2026-03-22 12:53:33.761 AM] [34mdebug[39m:    [1mNode Version: [22mv22.22.1
+[2026-03-22 12:53:33.762 AM] [34mdebug[39m:    [1mTime:         [22mSun Mar 22 2026 00:53:33 GMT+0530 (India Standard Time)
+[2026-03-22 12:53:33.762 AM] [34mdebug[39m:    ----------------------------------------------------------------------
+[2026-03-22 12:53:33.763 AM] [34mdebug[39m:    
+(node:4776) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2026-03-22 12:53:39.413 AM] [34mdebug[39m:    > authorizing via signed-in user option
+[2026-03-22 12:53:39.422 AM] [34mdebug[39m:    > command requires scopes: ["ZohoCatalyst.projects.ALL","ZohoCatalyst.apigateway.apis.READ","ZohoCatalyst.apigateway.READ","ZohoCatalyst.segments.ALL","ZohoCatalyst.cache.READ","ZohoCatalyst.cache.CREATE","ZohoCatalyst.cache.DELETE","ZohoCatalyst.projects.ALL","ZohoCatalyst.cron.ALL","ZohoCatalyst.zcql.CREATE","ZohoCatalyst.projects.users.READ","ZohoCatalyst.projects.users.CREATE","ZohoCatalyst.projects.users.DELETE","ZohoCatalyst.projects.users.UPDATE","ZohoCatalyst.authentication.CREATE","ZohoCatalyst.email.CREATE","ZohoCatalyst.tables.ALL","ZohoCatalyst.tables.rows.ALL","ZohoCatalyst.tables.columns.ALL","ZohoCatalyst.tables.bulk.CREATE","ZohoCatalyst.tables.bulk.READ","ZohoCatalyst.folders.ALL","ZohoCatalyst.files.CREATE","ZohoCatalyst.files.READ","ZohoCatalyst.files.DELETE","ZohoCatalyst.functions.ALL","ZohoCatalyst.functions.EXECUTE","ZohoCatalyst.eventlistners.ALL","ZohoCatalyst.eventlisteners.produce","ZohoCatalyst.security.rules.Read","ZohoCatalyst.security.rules.Update","ZohoCatalyst.notifications.mobile","ZohoCatalyst.notifications.web","ZohoCatalyst.search.READ","ZohoCatalyst.mlkit.READ","QuickML.deployment.READ","ZohoCatalyst.pdfshot.execute","ZohoCatalyst.grid.READ","ZohoCatalyst.grid.terminate","ZohoCatalyst.circuits.execution.DELETE","ZohoCatalyst.circuits.execution.READ","ZohoCatalyst.circuits.execute","ZohoCatalyst.appsail.Read","ZohoCatalyst.jobpool.READ","ZohoCatalyst.job.ALL","ZohoCatalyst.nosql.READ","ZohoCatalyst.nosql.rows.ALL"]
+[2026-03-22 12:53:39.583 AM] [34mdebug[39m:    >>>> HTTP REQUEST : GET https://api.catalyst.zoho.in/baas/v1/project/31207000000011084 
+
+[2026-03-22 12:53:40.172 AM] [34mdebug[39m:    <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Sat, 21 Mar 2026 19:23:40 GMT","content-type":"application/vnd.catalyst.v2+json","transfer-encoding":"chunked","connection":"keep-alive","x-content-type-options":"nosniff","cache-control":"private,no-cache,no-store,max-age=0,must-revalidate","pragma":"no-cache","expires":"Thu, 01 Jan 1970 00:00:00 GMT","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[2026-03-22 12:53:40.182 AM] [34mdebug[39m:    >>>> HTTP REQUEST : GET https://api.catalyst.zoho.in/baas/v1/project/31207000000011084/environment 
+
+[2026-03-22 12:53:40.362 AM] [34mdebug[39m:    <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Sat, 21 Mar 2026 19:23:40 GMT","content-type":"application/vnd.catalyst.v2+json","transfer-encoding":"chunked","connection":"keep-alive","x-content-type-options":"nosniff","cache-control":"private,no-cache,no-store,max-age=0,must-revalidate","pragma":"no-cache","expires":"Thu, 01 Jan 1970 00:00:00 GMT","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[2026-03-22 12:53:40.699 AM] [34mdebug[39m:    Build folder already exists, starting cleanup
+[2026-03-22 12:53:41.127 AM] [31merror[39m:    [31m[1m[31m✖[39m[31m[22m [39mError running pre cleanup
+[2026-03-22 12:53:41.128 AM] [34mdebug[39m:    Error Stack: CatalystError: Error running pre cleanup
+    at C:\Users\Hariharan krishnan S\AppData\Roaming\npm\node_modules\zcatalyst-cli\lib\serve\index.js:67:19
+    at Generator.throw (<anonymous>)
+    at rejected (C:\Users\Hariharan krishnan S\AppData\Roaming\npm\node_modules\zcatalyst-cli\lib\serve\index.js:29:65)
+[2026-03-22 12:53:41.129 AM] [34mdebug[39m:    Original Error: [Error: EBUSY: resource busy or locked, rmdir 'F:\Railway Project Backend\Catalyst App\.build\functions\catalyst_backend'] {
+  errno: -4082,
+  code: 'EBUSY',
+  syscall: 'rmdir',
+  path: 'F:\\Railway Project Backend\\Catalyst App\\.build\\functions\\catalyst_backend'
+}
+[2026-03-22 12:53:41.129 AM] [34mdebug[39m:    Error Status: 500
+[2026-03-22 12:53:41.131 AM] [34mdebug[39m:    EXEC ENDED with event: Error (User), message: Error running pre cleanup
+[2026-03-22 12:53:41.131 AM] [34mdebug[39m:    TOTAL DURATION OF COMMAND EXEC : 1873
+[2026-03-22 12:53:49.843 AM] [34mdebug[39m:    >>>> HTTP REQUEST : POST https://api.catalyst.zoho.in/baas/v1/cli/logs 
+<request body omitted>
+
+[2026-03-22 12:53:50.290 AM] [34mdebug[39m:    <<<< HTTP RESPONSE : 400
+Response Headers: {"server":"ZGS","date":"Sat, 21 Mar 2026 19:23:50 GMT","content-type":"application/json;charset=ISO-8859-1","content-length":"148","connection":"keep-alive","x-content-type-options":"nosniff","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[2026-03-22 12:53:50.291 AM] [34mdebug[39m:    Response Body : {"status":"failure","data":{"error_code":"INPUT_SIZE_MORE_THAN_ALLOWED","message":"Please check if the size of the input is in the correct range"}}
+
+[2026-03-22 12:53:50.294 AM] [34mdebug[39m:    Unable to send debug log to server: HTTP Error: 400, Please check if the size of the input is in the correct range

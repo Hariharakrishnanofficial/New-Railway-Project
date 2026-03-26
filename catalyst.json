@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "targets": [
+      "smart_railway_app_function"
+    ],
+    "ignore": [],
+    "source": "functions"
+  },
+  "client": {
+    "source": "railway-app",
+    "plugin": "zcatalyst-cli-plugin-react"
+  }
+}

@@ -1,0 +1,53 @@
+✅ FUNCTION ERROR FIXES APPLIED
+
+ISSUE RESOLVED
+==============
+Fixed "unable to serve the request" error when testing POST /api/auth/register in Postman.
+
+CHANGES MADE
+============
+
+1. core/exceptions.py
+   - Enhanced RailwayException base class with optional "details" parameter
+   - Updated to_response() to include details field when provided
+   - Updated ValidationError and AuthenticationError to accept details parameter
+
+2. services/auth_crud_service.py
+   - Made users_table a lazy-loaded property (avoids init-time issues)
+   - Added comprehensive error handling to all CRUD methods:
+     * create_user() - Catches CloudScale errors with details
+     * signin() - Catches auth errors with details
+     * get_user_profile() - Catches retrieval errors with details
+     * update_profile() - Catches update errors with details
+     * change_password() - Catches password change errors with details
+     * delete_account() - Catches deletion errors with details
+     * deactivate_account() - Catches deactivation errors with details
+
+RESULT
+======
+All error responses now include:
+- "success": false
+- "error": Human-readable message
+- "details": Technical/CloudScale error details (for debugging)
+
+Example:
+POST /api/auth/register with duplicate email returns:
+{
+    "success": false,
+    "error": "Registration failed",
+    "details": "Email already registered"
+}
+
+TESTING
+=======
+Test the fixes using the provided checklist: AUTH_TESTING_CHECKLIST.txt
+
+Quick test:
+POST http://localhost:3000/server/catalyst_backend/api/auth/register
+Body: {
+    "Full_Name": "Test User",
+    "Email": "test@example.com",
+    "Password": "password123"
+}
+
+Should return 201 with success: true

@@ -1,0 +1,20 @@
+(node:13468) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+[33m[1m[33m⚠[39m[33m[22m [39mSkipping the serve of Client because of the error: client-package.json file was not found.
+
+Skipping API Gateway rules
+
+[1m >>>>>>>>>>>>> Advanced I/O <<<<<<<<<<< [22m
+[36m[1m[36mℹ[39m[36m[22m catalyst_backend: [39mhttp://localhost:3002/server/catalyst_backend/
+
+[1774192568371]  "[36mGET[39m"  "[1m/server/catalyst_backend/[22m"
+(node:13468) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+^C
+[33m[1m[33m⚠[39m[33m[22m [39m[33mNo serve components alive. Initiating catalyst serve shutdown.[39m
+
+Shutting down server
+
+[32m[1m[32m✔[39m[32m[22m [39mShutdown complete
+
+[31m[1m[31m✖[39m[31m[22m [39mclient-package.json file was not found.
