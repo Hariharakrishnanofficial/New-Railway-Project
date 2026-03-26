@@ -22,7 +22,15 @@
           "idx": 1,
           "id": "60066581545",
           "name": "Development",
-          "type": 3
+          "type": 3,
+          "env_status": "Active",
+          "project_details": {
+            "project_name": "Smart-Railway-App",
+            "id": "31207000000078061",
+            "project_type": "Live"
+          },
+          "is_default": true,
+          "action_required": false
         }
       ]
     }
