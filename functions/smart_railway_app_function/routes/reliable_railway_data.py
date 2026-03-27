@@ -265,27 +265,27 @@ def get_existing_stations_rowid_map():
         # use typical CloudScale ROWID patterns. CloudScale usually uses sequential ROWIDs.
         # We'll attempt creation with these and let CloudScale validate the foreign keys.
 
-        # CloudScale ROWID patterns - trying 2025 pattern after 2026 pattern didn't match
-        # Since trains are being attempted, we're close to the correct pattern
+        # CloudScale ROWID patterns - trying simple sequential patterns
+        # Since timestamp patterns didn't work, trying simpler approaches
         estimated_rowids = [
-            1774000000000000001,  # 2025 timestamp pattern (trying this next)
-            1774000000000000002,
-            1774000000000000003,
-            1764000000000000001,  # Alternative 2024 pattern fallback
-            1764000000000000002,
-            1764000000000000003,
+            1,  # Simple sequential (CloudScale sometimes uses this)
+            2,
+            3,
+            1000000000000000001,  # Large sequential pattern
+            1000000000000000002,
+            1000000000000000003,
         ]
 
-        # Map our known station codes to 2025-based ROWIDs
+        # Map our known station codes to simple sequential ROWIDs
         hardcoded_mapping = {
-            'MMCT': estimated_rowids[0],  # Mumbai Central -> 2025 timestamp ROWID
-            'NDLS': estimated_rowids[1],  # New Delhi -> sequential ROWID
-            'BNC': estimated_rowids[2],   # Bangalore City -> sequential ROWID
+            'MMCT': estimated_rowids[0],  # Mumbai Central -> ROWID 1
+            'NDLS': estimated_rowids[1],  # New Delhi -> ROWID 2
+            'BNC': estimated_rowids[2],   # Bangalore City -> ROWID 3
         }
 
-        logger.info(f"Testing 2025 timestamp-based station ROWID mapping: {hardcoded_mapping}")
-        logger.info("Previous 2026 pattern caused train attempts - getting closer!")
-        logger.info("CloudScale will validate foreign key constraints during train insertion")
+        logger.info(f"Testing simple sequential station ROWID mapping: {hardcoded_mapping}")
+        logger.info("Trying simplest possible ROWID patterns: 1, 2, 3")
+        logger.info("If this fails, will need to try alternative discovery methods")
 
         return hardcoded_mapping
 
