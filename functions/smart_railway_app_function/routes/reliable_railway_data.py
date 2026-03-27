@@ -257,40 +257,34 @@ def create_with_verification(table_name, record_data, verification_field, verifi
 
 
 def get_existing_stations_rowid_map():
-    """Get station ROWID mapping - using hardcoded approach to bypass SELECT * issues."""
+    """Get station ROWID mapping using ZCQL query."""
     try:
-        logger.info("Using direct hardcoded ROWID approach to bypass SELECT * issues")
+        app = get_catalyst_app()
+        zcql = app.zcql()
 
-        # Since we know stations exist but can't query them due to SELECT * prohibitions,
-        # use typical CloudScale ROWID patterns. CloudScale usually uses sequential ROWIDs.
-        # We'll attempt creation with these and let CloudScale validate the foreign keys.
+        # Query stations to get their actual ROWIDs (17-digit numbers in CloudScale)
+        query = "SELECT ROWID, Station_Code, Station_Name FROM Stations"
+        logger.info(f"Querying stations with ZCQL: {query}")
 
-        # CloudScale ROWID patterns - trying common development ranges
-        # Trying ranges often used in CloudScale development environments
-        estimated_rowids = [
-            1001,  # Common development ROWID range
-            1002,
-            1003,
-            100,   # Alternative simple range
-            200,
-            300,
-        ]
+        response = zcql.execute_query(query)
+        stations = response if isinstance(response, list) else []
 
-        # Map our known station codes to development-range ROWIDs
-        hardcoded_mapping = {
-            'MMCT': estimated_rowids[0],  # Mumbai Central -> ROWID 1001
-            'NDLS': estimated_rowids[1],  # New Delhi -> ROWID 1002
-            'BNC': estimated_rowids[2],   # Bangalore City -> ROWID 1003
-        }
+        # Build station code -> ROWID mapping
+        rowid_map = {}
+        for station in stations:
+            station_data = station.get('Stations', station)
+            code = station_data.get('Station_Code')
+            rowid = station_data.get('ROWID')
+            if code and rowid:
+                # Convert ROWID to int if it's a string
+                rowid_map[code] = int(rowid) if isinstance(rowid, str) else rowid
+                logger.info(f"Mapped station {code} -> ROWID {rowid}")
 
-        logger.info(f"Testing development-range station ROWID mapping: {hardcoded_mapping}")
-        logger.info("Trying common CloudScale development ROWID ranges: 1001-1003")
-        logger.info("System confirmed working - trains attempted with each pattern")
-
-        return hardcoded_mapping
+        logger.info(f"Station ROWID map discovered: {rowid_map}")
+        return rowid_map
 
     except Exception as e:
-        logger.exception(f"Error in hardcoded station ROWID mapping: {e}")
+        logger.exception(f"Error discovering station ROWID mapping: {e}")
         return {}
 
 

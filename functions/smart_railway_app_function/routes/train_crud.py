@@ -1,6 +1,6 @@
 """
-Train CRUD Focus - Systematic ROWID Discovery
-Creates one train at a time with different ROWID patterns to find the correct station references.
+Train CRUD Operations - Complete Implementation
+Uses dynamic station ROWID discovery for foreign key references.
 """
 
 from flask import Blueprint, jsonify, request
@@ -12,143 +12,345 @@ logger = logging.getLogger(__name__)
 
 train_crud_bp = Blueprint('train_crud', __name__, url_prefix='/train-crud')
 
-# Test train data with minimal fields
-TEST_TRAIN = {
-    'Train_Number': 'TEST001',
-    'Train_Name': 'ROWID Test Express',
-    'Train_Type': 'EXPRESS',
-    'Departure_Time': '10:00',
-    'Arrival_Time': '18:00',
-    'Duration': '8:00',
-    'Distance': 500.0,
-    'Run_Days': 'Mon,Tue,Wed,Thu,Fri',
-    'Is_Active': 'true'
-}
 
-@train_crud_bp.route('/test-rowid-pattern/<int:pattern_id>', methods=['POST'])
-def test_rowid_pattern(pattern_id):
-    """Test train creation with specific ROWID pattern."""
-
-    # Different ROWID patterns to test
-    rowid_patterns = [
-        [1001, 1002],           # Pattern 0: Development range
-        [1, 2],                 # Pattern 1: Simple sequential
-        [100, 200],             # Pattern 2: Hundreds
-        [1000001, 1000002],     # Pattern 3: Million+ range
-        [999999999999999999, 1000000000000000000],  # Pattern 4: Large numbers
-        [1804000000000000001, 1804000000000000002],  # Pattern 5: Timestamp-like
-    ]
-
-    if pattern_id >= len(rowid_patterns):
-        return jsonify({
-            'status': 'error',
-            'message': f'Pattern {pattern_id} not available. Max: {len(rowid_patterns)-1}'
-        }), 400
-
+def get_station_rowid_map():
+    """Dynamically discover station ROWIDs from CloudScale."""
     try:
-        # Get the pattern
-        rowids = rowid_patterns[pattern_id]
+        app = get_catalyst_app()
+        zcql = app.zcql()
 
-        # Create test train with this pattern
-        train_data = TEST_TRAIN.copy()
-        train_data['From_Station'] = rowids[0]  # MMCT -> first ROWID
-        train_data['To_Station'] = rowids[1]    # NDLS -> second ROWID
-        train_data['Train_Number'] = f'TEST{pattern_id:03d}'  # Unique number per pattern
+        query = "SELECT ROWID, Station_Code, Station_Name FROM Stations"
+        response = zcql.execute_query(query)
+        stations = response if isinstance(response, list) else []
 
-        logger.info(f"Testing ROWID pattern {pattern_id}: {rowids}")
-        logger.info(f"Train data: {train_data}")
+        # Build station code -> ROWID mapping
+        rowid_map = {}
+        for station in stations:
+            station_data = station.get('Stations', station)
+            code = station_data.get('Station_Code')
+            rowid = station_data.get('ROWID')
+            if code and rowid:
+                rowid_map[code] = int(rowid)
 
-        # Attempt creation
+        logger.info(f"Station ROWID map: {rowid_map}")
+        return rowid_map
+
+    except Exception as e:
+        logger.exception("Error getting station ROWID map")
+        return {}
+
+
+# ============ CREATE ============
+
+@train_crud_bp.route('/create', methods=['POST'])
+def create_train():
+    """Create a new train with automatic station ROWID resolution."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        # Required fields
+        required = ['Train_Number', 'Train_Name', 'From_Station', 'To_Station', 'Departure_Time', 'Arrival_Time']
+        missing = [f for f in required if f not in data]
+        if missing:
+            return jsonify({'status': 'error', 'message': f'Missing required fields: {missing}'}), 400
+
+        # Get station ROWID map for foreign key resolution
+        station_map = get_station_rowid_map()
+        if not station_map:
+            return jsonify({'status': 'error', 'message': 'Could not get station ROWID mapping'}), 500
+
+        # Resolve station codes to ROWIDs if provided as strings
+        train_data = data.copy()
+
+        from_station = data['From_Station']
+        to_station = data['To_Station']
+
+        # If station codes provided as strings, convert to ROWIDs
+        if isinstance(from_station, str):
+            if from_station not in station_map:
+                return jsonify({'status': 'error', 'message': f'Unknown station code: {from_station}'}), 400
+            train_data['From_Station'] = station_map[from_station]
+
+        if isinstance(to_station, str):
+            if to_station not in station_map:
+                return jsonify({'status': 'error', 'message': f'Unknown station code: {to_station}'}), 400
+            train_data['To_Station'] = station_map[to_station]
+
+        logger.info(f"Creating train: {train_data}")
         result = cloudscale_repo.create_record(TABLES['trains'], train_data)
 
         if result.get('success'):
             return jsonify({
                 'status': 'success',
-                'message': f'SUCCESS! Pattern {pattern_id} worked: {rowids}',
-                'pattern_id': pattern_id,
-                'rowids': rowids,
-                'train_data': train_data,
-                'result': result.get('data', {})
+                'message': 'Train created successfully',
+                'data': result.get('data', {})
             }), 201
         else:
             return jsonify({
-                'status': 'failed',
-                'message': f'Pattern {pattern_id} failed: {rowids}',
-                'pattern_id': pattern_id,
-                'rowids': rowids,
-                'error': result.get('error', 'Unknown error'),
-                'train_data': train_data
-            }), 200
+                'status': 'error',
+                'message': 'Failed to create train',
+                'error': result.get('error', 'Unknown error')
+            }), 400
 
     except Exception as e:
-        logger.exception(f"Error testing pattern {pattern_id}")
-        return jsonify({
-            'status': 'error',
-            'message': f'Exception testing pattern {pattern_id}: {str(e)}'
-        }), 500
+        logger.exception("Error creating train")
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
 
-@train_crud_bp.route('/get-all-trains', methods=['GET'])
-def get_all_trains():
-    """Get all trains from CloudScale."""
+
+@train_crud_bp.route('/create-sample', methods=['POST'])
+def create_sample_trains():
+    """Create sample trains using discovered station ROWIDs."""
     try:
-        trains = cloudscale_repo.get_all_records(TABLES['trains'], limit=50)
+        station_map = get_station_rowid_map()
+        if not station_map:
+            return jsonify({'status': 'error', 'message': 'No stations found'}), 500
 
-        if trains.get('success'):
-            train_data = trains.get('data', {}).get('data', [])
+        # Sample trains with only required and working fields
+        sample_trains = [
+            {
+                'Train_Number': '12951',
+                'Train_Name': 'Mumbai Rajdhani Express',
+                'From_Station': 'MMCT',
+                'To_Station': 'NDLS',
+                'Departure_Time': '16:45',
+                'Arrival_Time': '08:35'
+            },
+            {
+                'Train_Number': '12002',
+                'Train_Name': 'Shatabdi Express',
+                'From_Station': 'NDLS',
+                'To_Station': 'BNC',
+                'Departure_Time': '06:00',
+                'Arrival_Time': '22:30'
+            }
+        ]
+
+        results = []
+        created = 0
+
+        for train in sample_trains:
+            # Convert station codes to ROWIDs
+            train_data = train.copy()
+            from_code = train['From_Station']
+            to_code = train['To_Station']
+
+            if from_code in station_map:
+                train_data['From_Station'] = station_map[from_code]
+            else:
+                results.append({'train': train['Train_Number'], 'error': f'Station {from_code} not found'})
+                continue
+
+            if to_code in station_map:
+                train_data['To_Station'] = station_map[to_code]
+            else:
+                results.append({'train': train['Train_Number'], 'error': f'Station {to_code} not found'})
+                continue
+
+            result = cloudscale_repo.create_record(TABLES['trains'], train_data)
+
+            if result.get('success'):
+                created += 1
+                results.append({
+                    'train': train['Train_Number'],
+                    'status': 'created',
+                    'rowid': result.get('data', {}).get('ROWID')
+                })
+            else:
+                results.append({
+                    'train': train['Train_Number'],
+                    'status': 'failed',
+                    'error': result.get('error')
+                })
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Created {created}/{len(sample_trains)} trains',
+            'created': created,
+            'results': results,
+            'station_map': station_map
+        }), 201 if created > 0 else 200
+
+    except Exception as e:
+        logger.exception("Error creating sample trains")
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
+
+
+# ============ READ ============
+
+@train_crud_bp.route('/list', methods=['GET'])
+def list_trains():
+    """Get all trains."""
+    try:
+        app = get_catalyst_app()
+        zcql = app.zcql()
+
+        query = "SELECT ROWID, Train_Number, Train_Name, Train_Type, From_Station, To_Station, Departure_Time, Arrival_Time FROM Trains"
+        response = zcql.execute_query(query)
+        trains = response if isinstance(response, list) else []
+
+        # Extract train data from response
+        train_list = []
+        for train in trains:
+            train_data = train.get('Trains', train)
+            train_list.append(train_data)
+
+        return jsonify({
+            'status': 'success',
+            'count': len(train_list),
+            'trains': train_list
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error listing trains")
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
+
+
+@train_crud_bp.route('/get/<train_id>', methods=['GET'])
+def get_train(train_id):
+    """Get a specific train by ROWID or Train_Number."""
+    try:
+        app = get_catalyst_app()
+        zcql = app.zcql()
+
+        # Check if train_id is ROWID or Train_Number
+        if train_id.isdigit() and len(train_id) > 10:
+            query = f"SELECT ROWID, Train_Number, Train_Name, Train_Type, From_Station, To_Station, Departure_Time, Arrival_Time, Duration, Distance, Run_Days FROM Trains WHERE ROWID = {train_id}"
+        else:
+            query = f"SELECT ROWID, Train_Number, Train_Name, Train_Type, From_Station, To_Station, Departure_Time, Arrival_Time, Duration, Distance, Run_Days FROM Trains WHERE Train_Number = '{train_id}'"
+
+        response = zcql.execute_query(query)
+        trains = response if isinstance(response, list) else []
+
+        if trains:
+            train_data = trains[0].get('Trains', trains[0])
             return jsonify({
                 'status': 'success',
-                'count': len(train_data),
-                'trains': train_data
+                'train': train_data
+            }), 200
+        else:
+            return jsonify({
+                'status': 'not_found',
+                'message': f'Train {train_id} not found'
+            }), 404
+
+    except Exception as e:
+        logger.exception(f"Error getting train {train_id}")
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
+
+
+# ============ UPDATE ============
+
+@train_crud_bp.route('/update/<train_id>', methods=['PUT', 'PATCH'])
+def update_train(train_id):
+    """Update a train by ROWID."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        # If updating station references, resolve to ROWIDs
+        if 'From_Station' in data or 'To_Station' in data:
+            station_map = get_station_rowid_map()
+
+            if 'From_Station' in data and isinstance(data['From_Station'], str):
+                if data['From_Station'] in station_map:
+                    data['From_Station'] = station_map[data['From_Station']]
+                else:
+                    return jsonify({'status': 'error', 'message': f'Unknown station: {data["From_Station"]}'}), 400
+
+            if 'To_Station' in data and isinstance(data['To_Station'], str):
+                if data['To_Station'] in station_map:
+                    data['To_Station'] = station_map[data['To_Station']]
+                else:
+                    return jsonify({'status': 'error', 'message': f'Unknown station: {data["To_Station"]}'}), 400
+
+        result = cloudscale_repo.update_record(TABLES['trains'], train_id, data)
+
+        if result.get('success'):
+            return jsonify({
+                'status': 'success',
+                'message': 'Train updated successfully',
+                'data': result.get('data', {})
             }), 200
         else:
             return jsonify({
                 'status': 'error',
-                'message': 'Failed to get trains',
-                'error': trains.get('error', 'Unknown error')
-            }), 500
+                'message': 'Failed to update train',
+                'error': result.get('error', 'Unknown error')
+            }), 400
 
     except Exception as e:
-        logger.exception("Error getting trains")
-        return jsonify({
-            'status': 'error',
-            'message': f'Exception getting trains: {str(e)}'
-        }), 500
+        logger.exception(f"Error updating train {train_id}")
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
 
-@train_crud_bp.route('/delete-test-trains', methods=['DELETE'])
-def delete_test_trains():
-    """Delete test trains to clean up."""
+
+# ============ DELETE ============
+
+@train_crud_bp.route('/delete/<train_id>', methods=['DELETE'])
+def delete_train(train_id):
+    """Delete a train by ROWID."""
     try:
-        # Get all trains first
-        trains_result = cloudscale_repo.get_all_records(TABLES['trains'], limit=50)
+        result = cloudscale_repo.delete_record(TABLES['trains'], train_id)
 
-        if not trains_result.get('success'):
+        if result.get('success'):
+            return jsonify({
+                'status': 'success',
+                'message': f'Train {train_id} deleted successfully'
+            }), 200
+        else:
             return jsonify({
                 'status': 'error',
-                'message': 'Could not get trains to delete'
-            }), 500
+                'message': 'Failed to delete train',
+                'error': result.get('error', 'Unknown error')
+            }), 400
 
-        trains = trains_result.get('data', {}).get('data', [])
-        deleted_count = 0
+    except Exception as e:
+        logger.exception(f"Error deleting train {train_id}")
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
 
+
+@train_crud_bp.route('/delete-all-test', methods=['DELETE'])
+def delete_all_test_trains():
+    """Delete all test trains (MIN*, TEST*, FLD*)."""
+    try:
+        app = get_catalyst_app()
+        zcql = app.zcql()
+
+        # Find test trains
+        query = "SELECT ROWID, Train_Number FROM Trains WHERE Train_Number LIKE 'MIN%' OR Train_Number LIKE 'TEST%' OR Train_Number LIKE 'FLD%'"
+        response = zcql.execute_query(query)
+        trains = response if isinstance(response, list) else []
+
+        deleted = 0
         for train in trains:
-            train_number = train.get('Train_Number', '')
-            if train_number.startswith('TEST'):
-                train_id = train.get('ROWID')
-                if train_id:
-                    delete_result = cloudscale_repo.delete_record(TABLES['trains'], str(train_id))
-                    if delete_result.get('success'):
-                        deleted_count += 1
-                        logger.info(f"Deleted test train {train_number} (ID: {train_id})")
+            train_data = train.get('Trains', train)
+            rowid = train_data.get('ROWID')
+            if rowid:
+                result = cloudscale_repo.delete_record(TABLES['trains'], str(rowid))
+                if result.get('success'):
+                    deleted += 1
 
         return jsonify({
             'status': 'success',
-            'message': f'Deleted {deleted_count} test trains',
-            'deleted_count': deleted_count
+            'message': f'Deleted {deleted} test trains',
+            'deleted': deleted
         }), 200
 
     except Exception as e:
         logger.exception("Error deleting test trains")
-        return jsonify({
-            'status': 'error',
-            'message': f'Exception deleting test trains: {str(e)}'
-        }), 500
+        return jsonify({'status': 'error', 'message': f'Exception: {str(e)}'}), 500
+
+
+# ============ UTILITY ============
+
+@train_crud_bp.route('/discover-stations', methods=['GET'])
+def discover_stations():
+    """Get station ROWID mapping for reference."""
+    station_map = get_station_rowid_map()
+    return jsonify({
+        'status': 'success',
+        'station_count': len(station_map),
+        'station_map': station_map
+    }), 200
