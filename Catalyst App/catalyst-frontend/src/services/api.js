@@ -344,6 +344,24 @@ export const usersApi = {
   insights: (id) => client.get(`/users/${id}/insights`),
 };
 
+// Admin Users — admin-only CRUD (Role fixed to Admin)
+export const adminUsersApi = {
+  getAll: (params) => client.get('/admin/users', { params, headers: adminHeaders() }),
+  getById: (id) => client.get(`/admin/users/${id}`, { headers: adminHeaders() }),
+  create: (data) => client.post('/admin/users', data, { headers: adminHeaders() }),
+  update: (id, data) => client.put(`/admin/users/${id}`, data, { headers: adminHeaders() }),
+  delete: (id) => client.delete(`/admin/users/${id}`, { headers: adminHeaders() }),
+};
+
+// Admin Users aliases — keep `/admin/admin-users` path parity with client routes
+export const adminUsersAliasApi = {
+  getAll: (params) => client.get('/admin/admin-users', { params, headers: adminHeaders() }),
+  getById: (id) => client.get(`/admin/admin-users/${id}`, { headers: adminHeaders() }),
+  create: (data) => client.post('/admin/admin-users', data, { headers: adminHeaders() }),
+  update: (id, data) => client.put(`/admin/admin-users/${id}`, data, { headers: adminHeaders() }),
+  delete: (id) => client.delete(`/admin/admin-users/${id}`, { headers: adminHeaders() }),
+};
+
 // Bookings — mixed: passengers create/cancel own; admin sees all
 export const bookingsApi = {
   getAll: (params) => client.get('/bookings', { params, headers: adminHeaders() }),

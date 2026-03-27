@@ -17,6 +17,7 @@ const ADMIN_NAV = [
   { path: '/train-routes', label: 'Train Routes',  icon: 'map'      },
   { path: '/stations',     label: 'Stations',      icon: 'station'  },
   { path: '/users',        label: 'Users',         icon: 'users'    },
+  { path: '/admin/admin-users',  label: 'Admin Users',   icon: 'users'    },
   { path: '/bookings',     label: 'All Bookings',  icon: 'booking'  },
   { path: '/chart',        label: 'Seat Chart',    icon: 'seat'     },
   { path: '/inventory',    label: 'Inventory',     icon: 'inventory'},
@@ -36,6 +37,7 @@ const ACCENT = {
   '/train-routes': '#f59e0b',
   '/stations':     '#8b5cf6',
   '/users':        '#10b981',
+  '/admin/admin-users':  '#f59e0b',
   '/bookings':     '#f59e0b',
   '/chart':        '#10b981',
   '/inventory':    '#22c55e',
@@ -54,7 +56,7 @@ function Breadcrumb() {
   const segments = location.pathname.split('/').filter(Boolean);
   const labels = {
     trains: 'Trains', 'train-routes': 'Train Routes',
-    stations: 'Stations', users: 'Users',
+    stations: 'Stations', users: 'Users', 'admin-users': 'Admin Users', admin: 'Admin',
     bookings: 'Bookings', fares: 'Fares',
     settings: 'Settings', overview: 'Overview',
     inventory: 'Inventory', 'admin-logs': 'Admin Logs',

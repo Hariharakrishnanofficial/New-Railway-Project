@@ -22,6 +22,7 @@ import OverviewPage from './pages/OverviewPage';
 import TrainsPage from './pages/TrainsPage';
 import StationsPage from './pages/StationsPage';
 import UsersPage from './pages/UsersPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 import BookingsPage from './pages/BookingsPage';
 import SettingsPage from './pages/SettingsPage';
 import ReportsPage from './pages/ReportsPage';
@@ -134,6 +135,9 @@ function AppCore() {
                   <Route path="/trains" element={<TrainsPage />} />
                   <Route path="/stations" element={<StationsPage />} />
                   <Route path="/users" element={<UsersPage />} />
+                  <Route path="/admin-users" element={<AdminUsersPage />} />
+                  <Route path="/admin/admin-users" element={<AdminUsersPage />} />
+                  <Route path="/admin/admin-users/new" element={<AdminUsersPage />} />
                   <Route path="/bookings" element={<BookingsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/reports" element={<ReportsPage />} />

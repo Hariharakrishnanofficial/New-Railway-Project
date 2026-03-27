@@ -20,5 +20,6 @@ def register_blueprints(app):
     from routes.announcements import announcements_bp; app.register_blueprint(announcements_bp)
     from routes.ai_routes   import ai_bp;          app.register_blueprint(ai_bp)
     from routes.admin_logs  import admin_logs_bp;  app.register_blueprint(admin_logs_bp)
+    from routes.admin_users import admin_users_bp; app.register_blueprint(admin_users_bp)
     from routes.coach_layouts import coach_layouts_bp; app.register_blueprint(coach_layouts_bp)
     # admin_reports registered in app.py with explicit url_prefix

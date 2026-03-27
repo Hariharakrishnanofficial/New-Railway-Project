@@ -1,3 +1,7 @@
 zcatalyst-sdk==1.2.0
 argon2-cffi==23.1.0
 certifi
+flask
+flask-cors
+PyJWT>=2.0.0
+bcrypt>=4.0.0
