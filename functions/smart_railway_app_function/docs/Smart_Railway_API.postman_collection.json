@@ -923,6 +923,257 @@
 			"description": "Train management endpoints."
 		},
 		{
+			"name": "04b. Train CRUD (CloudScale)",
+			"item": [
+				{
+					"name": "Discover Station ROWIDs",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/discover-stations",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "discover-stations"]
+						},
+						"description": "Get station ROWID mapping for CloudScale foreign key references."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"station_count\": 3,\n    \"station_map\": {\n        \"MMCT\": 31207000000116007,\n        \"NDLS\": 31207000000116011,\n        \"BNC\": 31207000000116014\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "List All Trains",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/list",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "list"]
+						},
+						"description": "Get all trains from CloudScale database."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"count\": 2,\n    \"trains\": [\n        {\n            \"ROWID\": \"31207000000116027\",\n            \"Train_Number\": \"12951\",\n            \"Train_Name\": \"Mumbai Rajdhani Express\",\n            \"Train_Type\": null,\n            \"From_Station\": \"31207000000116007\",\n            \"To_Station\": \"31207000000116011\",\n            \"Departure_Time\": \"16:45\",\n            \"Arrival_Time\": \"08:35\"\n        },\n        {\n            \"ROWID\": \"31207000000116030\",\n            \"Train_Number\": \"12002\",\n            \"Train_Name\": \"Shatabdi Express\",\n            \"Train_Type\": null,\n            \"From_Station\": \"31207000000116011\",\n            \"To_Station\": \"31207000000116014\",\n            \"Departure_Time\": \"06:00\",\n            \"Arrival_Time\": \"22:30\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Train by ID or Number",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/get/12951",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "get", "12951"]
+						},
+						"description": "Get a specific train by ROWID (17-digit) or Train_Number."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"train\": {\n        \"ROWID\": \"31207000000116027\",\n        \"Train_Number\": \"12951\",\n        \"Train_Name\": \"Mumbai Rajdhani Express\",\n        \"Train_Type\": null,\n        \"From_Station\": \"31207000000116007\",\n        \"To_Station\": \"31207000000116011\",\n        \"Departure_Time\": \"16:45\",\n        \"Arrival_Time\": \"08:35\",\n        \"Duration\": null,\n        \"Distance\": null,\n        \"Run_Days\": null\n    }\n}"
+						},
+						{
+							"name": "Not Found (404)",
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"not_found\",\n    \"message\": \"Train 12999 not found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Train",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success' && jsonData.data.ROWID) {",
+									"    pm.collectionVariables.set('trainId', jsonData.data.ROWID);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Train_Number\": \"12345\",\n    \"Train_Name\": \"Test Express\",\n    \"From_Station\": \"MMCT\",\n    \"To_Station\": \"NDLS\",\n    \"Departure_Time\": \"10:00\",\n    \"Arrival_Time\": \"20:00\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/create",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "create"]
+						},
+						"description": "Create a new train with automatic station code to ROWID conversion. Required fields: Train_Number, Train_Name, From_Station (code or ROWID), To_Station (code or ROWID), Departure_Time, Arrival_Time."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Train created successfully\",\n    \"data\": {\n        \"ROWID\": \"31207000000116045\",\n        \"Train_Number\": \"12345\",\n        \"Train_Name\": \"Test Express\",\n        \"From_Station\": 31207000000116007,\n        \"To_Station\": 31207000000116011,\n        \"Departure_Time\": \"10:00\",\n        \"Arrival_Time\": \"20:00\"\n    }\n}"
+						},
+						{
+							"name": "Error - Missing Fields (400)",
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Missing required fields: ['Train_Number', 'From_Station']\"\n}"
+						},
+						{
+							"name": "Error - Unknown Station (400)",
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Unknown station code: XYZ\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Sample Trains",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/create-sample",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "create-sample"]
+						},
+						"description": "Create sample trains (12951 Mumbai Rajdhani and 12002 Shatabdi) with automatic ROWID discovery."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Created 2/2 trains\",\n    \"created\": 2,\n    \"results\": [\n        {\n            \"train\": \"12951\",\n            \"status\": \"created\",\n            \"rowid\": \"31207000000116027\"\n        },\n        {\n            \"train\": \"12002\",\n            \"status\": \"created\",\n            \"rowid\": \"31207000000116030\"\n        }\n    ],\n    \"station_map\": {\n        \"MMCT\": 31207000000116007,\n        \"NDLS\": 31207000000116011,\n        \"BNC\": 31207000000116014\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Train",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Train_Type\": \"RAJDHANI\",\n    \"Duration\": \"15h 50m\",\n    \"Distance\": 1384\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/update/{{trainId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "update", "{{trainId}}"]
+						},
+						"description": "Update train fields by ROWID. Supports station code to ROWID conversion for From_Station and To_Station."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Train updated successfully\",\n    \"data\": {\n        \"ROWID\": \"31207000000116027\",\n        \"Train_Number\": \"12951\",\n        \"Train_Type\": \"RAJDHANI\",\n        \"Duration\": \"15h 50m\",\n        \"Distance\": 1384\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Train",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/delete/{{trainId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "delete", "{{trainId}}"]
+						},
+						"description": "Delete a train by ROWID (17-digit CloudScale ID)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Train 31207000000116027 deleted successfully\"\n}"
+						},
+						{
+							"name": "Error (400)",
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Failed to delete train\",\n    \"error\": \"Record not found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete All Test Trains",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-crud/delete-all-test",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-crud", "delete-all-test"]
+						},
+						"description": "Bulk delete all test trains (Train_Number starting with MIN, TEST, or FLD)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Deleted 3 test trains\",\n    \"deleted\": 3\n}"
+						}
+					]
+				}
+			],
+			"description": "CloudScale train CRUD operations with dynamic station ROWID discovery. Uses 17-digit CloudScale ROWIDs for foreign key references."
+		},
+		{
 			"name": "05. Train Routes",
 			"item": [
 				{
