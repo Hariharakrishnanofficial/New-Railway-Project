@@ -41,8 +41,8 @@ def create_real_working_data():
             setting_record = {'Name': 'TEST_SETTING_BASIC'}
             insert_result = settings_table.insert_row(setting_record)
 
-            # Verify immediately
-            verify_query = "SELECT * FROM Settings WHERE Name = 'TEST_SETTING_BASIC'"
+            # Verify immediately - use specific fields instead of SELECT *
+            verify_query = "SELECT ROWID, Setting_Key FROM Settings WHERE Setting_Key = 'TEST_SETTING_BASIC'"
             verify_result = zcql.execute_query(verify_query)
 
             results['settings'] = {
@@ -62,8 +62,8 @@ def create_real_working_data():
             station_record = {'Name': 'Mumbai Central', 'Code': 'MMCT'}
             insert_result = stations_table.insert_row(station_record)
 
-            # Verify
-            verify_query = "SELECT * FROM Stations WHERE Code = 'MMCT'"
+            # Verify - use specific fields instead of SELECT *
+            verify_query = "SELECT ROWID, Station_Code FROM Stations WHERE Station_Code = 'MMCT'"
             verify_result = zcql.execute_query(verify_query)
 
             results['stations'] = {
@@ -83,8 +83,8 @@ def create_real_working_data():
             train_record = {'Name': 'Rajdhani Express', 'Number': '12951'}
             insert_result = trains_table.insert_row(train_record)
 
-            # Verify
-            verify_query = "SELECT * FROM Trains WHERE Number = '12951'"
+            # Verify - use specific fields instead of SELECT *
+            verify_query = "SELECT ROWID, Train_Number FROM Trains WHERE Train_Number = '12951'"
             verify_result = zcql.execute_query(verify_query)
 
             results['trains'] = {
@@ -104,8 +104,8 @@ def create_real_working_data():
             announcement_record = {'Title': 'Welcome Message', 'Message': 'Welcome to Railway System'}
             insert_result = announcements_table.insert_row(announcement_record)
 
-            # Verify
-            verify_query = "SELECT * FROM Announcements WHERE Title = 'Welcome Message'"
+            # Verify - use specific fields instead of SELECT *
+            verify_query = "SELECT ROWID, Title FROM Announcements WHERE Title = 'Welcome Message'"
             verify_result = zcql.execute_query(verify_query)
 
             results['announcements'] = {
@@ -125,8 +125,8 @@ def create_real_working_data():
             fare_record = {'Amount': '500', 'Type': 'Base'}
             insert_result = fares_table.insert_row(fare_record)
 
-            # Verify
-            verify_query = "SELECT * FROM Fares WHERE Type = 'Base'"
+            # Verify - use specific fields instead of SELECT *
+            verify_query = "SELECT ROWID, Base_Fare FROM Fares WHERE Base_Fare = '500'"
             verify_result = zcql.execute_query(verify_query)
 
             results['fares'] = {
@@ -146,8 +146,8 @@ def create_real_working_data():
             quota_record = {'Type': 'GENERAL', 'Amount': '100'}
             insert_result = quotas_table.insert_row(quota_record)
 
-            # Verify
-            verify_query = "SELECT * FROM Quotas WHERE Type = 'GENERAL'"
+            # Verify - use specific fields instead of SELECT *
+            verify_query = "SELECT ROWID, Quota_Type FROM Quotas WHERE Quota_Type = 'GENERAL'"
             verify_result = zcql.execute_query(verify_query)
 
             results['quotas'] = {
