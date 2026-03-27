@@ -254,6 +254,37 @@ def create_with_verification(table_name, record_data, verification_field, verifi
         }
 
 
+def get_existing_stations_rowid_map():
+    """Query existing stations and build ROWID mapping for train references."""
+    try:
+        catalyst_app = get_catalyst_app()
+        if not catalyst_app:
+            return {}
+
+        # Query existing stations to get ROWIDs
+        query = "SELECT Station_Code, ROWID FROM Stations WHERE Station_Code IN ('MMCT', 'NDLS', 'BNC')"
+        result = catalyst_app.zcql().execute_query(query)
+
+        if result and isinstance(result, list):
+            rowid_map = {}
+            for station in result:
+                code = station.get('Station_Code')
+                rowid = station.get('ROWID')
+                if code and rowid:
+                    rowid_map[code] = rowid
+                    logger.info(f"Found existing station: {code} -> ROWID {rowid}")
+
+            logger.info(f"Existing station ROWID mapping: {rowid_map}")
+            return rowid_map
+        else:
+            logger.info("No existing stations found")
+            return {}
+
+    except Exception as e:
+        logger.exception(f"Error getting existing station ROWIDs: {e}")
+        return {}
+
+
 def create_stations_with_verification():
     """Create stations and verify persistence. Returns station ROWID mapping for train references."""
     results = {
@@ -561,31 +592,62 @@ def create_persistent_railway_records():
             'module_results': {}
         }
 
-        # Step 1: Create Stations (Foundation Data)
-        logger.info("Creating stations...")
-        try:
-            station_results = create_stations_with_verification()
-            overall_results['module_results']['stations'] = station_results
-            overall_results['summary']['total_attempted'] += station_results['attempted']
-            overall_results['summary']['total_created'] += station_results['created']
-            overall_results['summary']['total_verified'] += station_results['verified']
+        # Step 1: Get or Create Stations (Foundation Data)
+        logger.info("Getting or creating stations...")
 
-            if station_results['created'] > 0:
-                overall_results['summary']['modules_successful'] += 1
+        # First check for existing stations
+        existing_station_map = get_existing_stations_rowid_map()
+        required_stations = {'MMCT', 'NDLS', 'BNC'}
+        has_all_required_stations = required_stations.issubset(set(existing_station_map.keys()))
 
-            logger.info(f"Station creation completed: {station_results['created']}/{station_results['attempted']}")
-        except Exception as e:
-            logger.exception("Station creation failed")
-            overall_results['module_results']['stations'] = {
+        if has_all_required_stations:
+            logger.info(f"All required stations exist: {existing_station_map}")
+            station_results = {
                 'attempted': len(STATION_SAMPLES),
-                'created': 0,
-                'verified': 0,
-                'error': f'Station creation exception: {str(e)}'
+                'created': 0,  # No new stations created
+                'verified': len(existing_station_map),  # All existing stations verified
+                'station_rowid_map': existing_station_map,
+                'details': [
+                    {
+                        'station_code': code,
+                        'success': True,
+                        'verified': True,
+                        'rowid': rowid,
+                        'status': 'existing'
+                    }
+                    for code, rowid in existing_station_map.items()
+                ],
+                'message': 'Using existing stations - no duplicates created'
             }
+            overall_results['summary']['modules_successful'] += 1
+        else:
+            # Create missing stations only
+            logger.info(f"Creating stations - existing: {existing_station_map.keys()}")
+            try:
+                station_results = create_stations_with_verification()
+                overall_results['summary']['total_attempted'] += station_results['attempted']
+                overall_results['summary']['total_created'] += station_results['created']
+                overall_results['summary']['total_verified'] += station_results['verified']
+
+                if station_results['created'] > 0:
+                    overall_results['summary']['modules_successful'] += 1
+
+                logger.info(f"Station creation completed: {station_results['created']}/{station_results['attempted']}")
+            except Exception as e:
+                logger.exception("Station creation failed")
+                station_results = {
+                    'attempted': len(STATION_SAMPLES),
+                    'created': 0,
+                    'verified': 0,
+                    'station_rowid_map': existing_station_map,  # Use what we have
+                    'error': f'Station creation exception: {str(e)}'
+                }
+
+        overall_results['module_results']['stations'] = station_results
 
         # Step 2: Create Trains (Reference Station ROWIDs)
         logger.info("Creating trains...")
-        station_rowid_map = overall_results['module_results'].get('stations', {}).get('station_rowid_map', {})
+        station_rowid_map = station_results.get('station_rowid_map', {})
         logger.info(f"Using station ROWID mapping for trains: {station_rowid_map}")
 
         try:
