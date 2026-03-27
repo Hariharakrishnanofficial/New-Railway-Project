@@ -257,7 +257,6 @@ def create_with_verification(table_name, record_data, verification_field, verifi
 
 
 def get_existing_stations_rowid_map():
-def get_existing_stations_rowid_map():
     """Get station ROWID mapping - using hardcoded approach to bypass SELECT * issues."""
     try:
         logger.info("Using direct hardcoded ROWID approach to bypass SELECT * issues")
