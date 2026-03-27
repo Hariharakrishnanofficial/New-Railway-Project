@@ -60,3 +60,51 @@ def register_blueprints(app):
     # Module Master routes
     from routes.module_master import module_master_bp
     app.register_blueprint(module_master_bp)
+
+    # Passengers routes
+    from routes.passengers import passengers_bp
+    app.register_blueprint(passengers_bp)
+
+    # Coach Layouts routes
+    from routes.coach_layouts import coach_layouts_bp
+    app.register_blueprint(coach_layouts_bp)
+
+    # Data Seeding routes (create test users)
+    from routes.seed import seed_bp
+    app.register_blueprint(seed_bp)
+
+    # Comprehensive Sample Data Seeder
+    from routes.data_seed import data_seed_bp
+    app.register_blueprint(data_seed_bp)
+
+    # Public Sample Data Seeder (No Auth Required)
+    from routes.public_seed import public_seed_bp
+    app.register_blueprint(public_seed_bp)
+
+    # CloudScale Direct Test (Debug)
+    from routes.cloudscale_test import cloudscale_test_bp
+    app.register_blueprint(cloudscale_test_bp)
+
+    # Smart Sample Data Seeder (Schema-Aware)
+    from routes.smart_seed import smart_seed_bp
+    app.register_blueprint(smart_seed_bp)
+
+    # Direct CloudScale Data Creator (Guaranteed Working)
+    from routes.direct_data import direct_data_bp
+    app.register_blueprint(direct_data_bp)
+
+    # Railway Modules Data Creator (Targeted)
+    from routes.railway_data import railway_data_bp
+    app.register_blueprint(railway_data_bp)
+
+    # CloudScale Schema Discovery
+    from routes.schema_discovery import schema_discovery_bp
+    app.register_blueprint(schema_discovery_bp)
+
+    # Expand Railway Data (Build on Successful Patterns)
+    from routes.expand_railway import expand_railway_bp
+    app.register_blueprint(expand_railway_bp)
+
+    # Reliable Railway Data Creation (CloudScale Persistence Fix)
+    from routes.reliable_railway_data import reliable_railway_data_bp
+    app.register_blueprint(reliable_railway_data_bp)

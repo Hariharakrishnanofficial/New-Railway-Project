@@ -1,0 +1,2252 @@
+{
+	"info": {
+		"_postman_id": "smart-railway-api-v2",
+		"name": "Smart Railway Ticketing System API",
+		"description": "Complete REST API collection for Smart Railway Ticketing System v2.0\n\nBase URL: {{baseUrl}}\nAuthentication: Bearer Token (JWT)\n\n## Setup Instructions:\n1. Set `baseUrl` variable to your server URL\n2. Run 'Auth > Login' to get token\n3. Token is auto-saved to `authToken` variable\n4. All authenticated requests use this token automatically",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:9000",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "trainId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "stationId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "routeId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "bookingId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "moduleId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "pnr",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{authToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "01. Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success') {",
+									"    pm.collectionVariables.set('authToken', jsonData.data.token);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+									"    pm.collectionVariables.set('userId', jsonData.data.user.id);",
+									"    pm.test('Registration successful', function() {",
+									"        pm.expect(jsonData.status).to.eql('success');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"John Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"SecurePass123!\",\n    \"phoneNumber\": \"+91-9876543210\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register"]
+						},
+						"description": "Register a new user account.\n\n**Rate Limit:** 10 requests/hour"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"originalRequest": {
+								"method": "POST",
+								"url": {
+									"raw": "{{baseUrl}}/auth/register",
+									"host": ["{{baseUrl}}"],
+									"path": ["auth", "register"]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Registration successful\",\n    \"data\": {\n        \"user\": {\n            \"id\": \"1001\",\n            \"fullName\": \"John Doe\",\n            \"email\": \"john.doe@example.com\",\n            \"phoneNumber\": \"+91-9876543210\",\n            \"role\": \"User\",\n            \"accountStatus\": \"Active\"\n        },\n        \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n        \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n    }\n}"
+						},
+						{
+							"name": "Duplicate Email (409)",
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Email already registered\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success') {",
+									"    pm.collectionVariables.set('authToken', jsonData.data.token);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+									"    pm.collectionVariables.set('userId', jsonData.data.user.id);",
+									"    pm.test('Login successful', function() {",
+									"        pm.expect(jsonData.status).to.eql('success');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"SecurePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login with email and password.\n\n**Rate Limit:** 10 requests/15 minutes"
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Login successful\",\n    \"data\": {\n        \"user\": {\n            \"id\": \"1001\",\n            \"fullName\": \"John Doe\",\n            \"email\": \"john.doe@example.com\",\n            \"phoneNumber\": \"+91-9876543210\",\n            \"role\": \"User\",\n            \"accountStatus\": \"Active\"\n        },\n        \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n        \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n    }\n}"
+						},
+						{
+							"name": "Invalid Credentials (401)",
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Invalid email or password\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Login (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success') {",
+									"    pm.collectionVariables.set('authToken', jsonData.data.token);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+									"    pm.collectionVariables.set('userId', jsonData.data.user.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@railway.com\",\n    \"password\": \"AdminPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login as admin user for admin operations."
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Session",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "validate"]
+						},
+						"description": "Validate current JWT token and return user data."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"user\": {\n            \"id\": \"1001\",\n            \"fullName\": \"John Doe\",\n            \"email\": \"john.doe@example.com\",\n            \"role\": \"User\",\n            \"accountStatus\": \"Active\"\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success') {",
+									"    pm.collectionVariables.set('authToken', jsonData.data.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "refresh"]
+						},
+						"description": "Get new access token using refresh token."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n        \"tokenType\": \"Bearer\",\n        \"expiresIn\": 3600\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"John D. Doe\",\n    \"phoneNumber\": \"+91-9876543211\",\n    \"dateOfBirth\": \"1990-05-15\",\n    \"address\": \"456 New St, Delhi\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "profile"]
+						},
+						"description": "Update current user's profile."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Profile updated successfully\",\n    \"data\": {\n        \"user\": {\n            \"id\": \"1001\",\n            \"fullName\": \"John D. Doe\",\n            \"email\": \"john.doe@example.com\",\n            \"phoneNumber\": \"+91-9876543211\"\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"currentPassword\": \"SecurePass123!\",\n    \"newPassword\": \"NewSecurePass456!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/change-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "change-password"]
+						},
+						"description": "Change current user's password."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Password changed successfully\",\n    \"data\": {\n        \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "logout"]
+						},
+						"description": "Logout user (client should discard tokens)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Logged out successfully\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Authentication endpoints for user registration, login, and session management."
+		},
+		{
+			"name": "02. Users",
+			"item": [
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users?limit=100&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						},
+						"description": "Get all users (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"1001\",\n            \"Full_Name\": \"John Doe\",\n            \"Email\": \"john.doe@example.com\",\n            \"Phone_Number\": \"+91-9876543210\",\n            \"Role\": \"User\",\n            \"Account_Status\": \"Active\"\n        },\n        {\n            \"ROWID\": \"1002\",\n            \"Full_Name\": \"Admin User\",\n            \"Email\": \"admin@railway.com\",\n            \"Role\": \"Admin\",\n            \"Account_Status\": \"Active\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{userId}}"]
+						},
+						"description": "Get a specific user by ID."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1001\",\n        \"Full_Name\": \"John Doe\",\n        \"Email\": \"john.doe@example.com\",\n        \"Phone_Number\": \"+91-9876543210\",\n        \"Role\": \"User\",\n        \"Account_Status\": \"Active\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success' && jsonData.data.ROWID) {",
+									"    pm.collectionVariables.set('userId', jsonData.data.ROWID);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"New User\",\n    \"email\": \"newuser@example.com\",\n    \"password\": \"TempPass123!\",\n    \"phoneNumber\": \"+91-9876543212\",\n    \"role\": \"User\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"]
+						},
+						"description": "Create a new user (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1003\",\n        \"Full_Name\": \"New User\",\n        \"Email\": \"newuser@example.com\",\n        \"Role\": \"User\",\n        \"Account_Status\": \"Active\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"Updated User Name\",\n    \"phoneNumber\": \"+91-9876543213\",\n    \"role\": \"User\",\n    \"accountStatus\": \"Active\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{userId}}"]
+						},
+						"description": "Update a user (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"User updated\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Update User Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"Active\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{userId}}", "status"]
+						},
+						"description": "Update user account status (Admin only).\n\n**Allowed Values:** Active, Blocked, Suspended"
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"User status updated to Active\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{userId}}"]
+						},
+						"description": "Delete a user (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"User deleted\"\n}"
+						}
+					]
+				}
+			],
+			"description": "User management endpoints (Admin only)."
+		},
+		{
+			"name": "03. Stations",
+			"item": [
+				{
+					"name": "Get All Stations",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/stations",
+							"host": ["{{baseUrl}}"],
+							"path": ["stations"]
+						},
+						"description": "Get all stations (cached 24 hours)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"101\",\n            \"Station_Code\": \"NDLS\",\n            \"Station_Name\": \"New Delhi\",\n            \"City\": \"New Delhi\",\n            \"State\": \"Delhi\",\n            \"Zone\": \"NR\",\n            \"Platform_Count\": 16,\n            \"Is_Active\": \"true\"\n        },\n        {\n            \"ROWID\": \"102\",\n            \"Station_Code\": \"CSTM\",\n            \"Station_Name\": \"Chhatrapati Shivaji Maharaj Terminus\",\n            \"City\": \"Mumbai\",\n            \"State\": \"Maharashtra\",\n            \"Zone\": \"CR\",\n            \"Platform_Count\": 18,\n            \"Is_Active\": \"true\"\n        },\n        {\n            \"ROWID\": \"103\",\n            \"Station_Code\": \"HWH\",\n            \"Station_Name\": \"Howrah Junction\",\n            \"City\": \"Kolkata\",\n            \"State\": \"West Bengal\",\n            \"Zone\": \"ER\",\n            \"Platform_Count\": 23,\n            \"Is_Active\": \"true\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Station by ID",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/stations/{{stationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["stations", "{{stationId}}"]
+						},
+						"description": "Get a specific station by ID."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"101\",\n        \"Station_Code\": \"NDLS\",\n        \"Station_Name\": \"New Delhi\",\n        \"City\": \"New Delhi\",\n        \"State\": \"Delhi\",\n        \"Zone\": \"NR\",\n        \"Platform_Count\": 16,\n        \"Is_Active\": \"true\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Station",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success' && jsonData.data.ROWID) {",
+									"    pm.collectionVariables.set('stationId', jsonData.data.ROWID);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stationCode\": \"MAS\",\n    \"stationName\": \"Chennai Central\",\n    \"city\": \"Chennai\",\n    \"state\": \"Tamil Nadu\",\n    \"zone\": \"SR\",\n    \"platformCount\": 17\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/stations",
+							"host": ["{{baseUrl}}"],
+							"path": ["stations"]
+						},
+						"description": "Create a new station (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"104\",\n        \"Station_Code\": \"MAS\",\n        \"Station_Name\": \"Chennai Central\",\n        \"City\": \"Chennai\",\n        \"State\": \"Tamil Nadu\",\n        \"Zone\": \"SR\",\n        \"Platform_Count\": 17,\n        \"Is_Active\": \"true\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Station",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stationName\": \"Chennai Central Railway Station\",\n    \"platformCount\": 18\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/stations/{{stationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["stations", "{{stationId}}"]
+						},
+						"description": "Update a station (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Station updated\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Station",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/stations/{{stationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["stations", "{{stationId}}"]
+						},
+						"description": "Delete a station (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Station deleted\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Station management endpoints."
+		},
+		{
+			"name": "04. Trains",
+			"item": [
+				{
+					"name": "Get All Trains",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/trains?limit=100&offset=0&active=true",
+							"host": ["{{baseUrl}}"],
+							"path": ["trains"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								},
+								{
+									"key": "active",
+									"value": "true"
+								},
+								{
+									"key": "source",
+									"value": "NDLS",
+									"disabled": true
+								},
+								{
+									"key": "destination",
+									"value": "HWH",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all trains with optional filtering."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"201\",\n            \"Train_Number\": \"12301\",\n            \"Train_Name\": \"Howrah Rajdhani Express\",\n            \"Train_Type\": \"Rajdhani\",\n            \"From_Station\": \"NDLS\",\n            \"To_Station\": \"HWH\",\n            \"Departure_Time\": \"16:55\",\n            \"Arrival_Time\": \"09:55\",\n            \"Duration\": \"17h 00m\",\n            \"Days_Of_Operation\": \"All Days\",\n            \"Is_Active\": \"true\",\n            \"Total_Seats_SL\": 0,\n            \"Total_Seats_3A\": 384,\n            \"Total_Seats_2A\": 92,\n            \"Total_Seats_1A\": 36,\n            \"Total_Seats_CC\": 0\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Train by ID",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/trains/{{trainId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["trains", "{{trainId}}"]
+						},
+						"description": "Get a specific train by ID."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"201\",\n        \"Train_Number\": \"12301\",\n        \"Train_Name\": \"Howrah Rajdhani Express\",\n        \"Train_Type\": \"Rajdhani\",\n        \"From_Station\": \"NDLS\",\n        \"To_Station\": \"HWH\",\n        \"Departure_Time\": \"16:55\",\n        \"Arrival_Time\": \"09:55\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Train",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success' && jsonData.data.ROWID) {",
+									"    pm.collectionVariables.set('trainId', jsonData.data.ROWID);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainNumber\": \"12425\",\n    \"trainName\": \"New Delhi Rajdhani Express\",\n    \"trainType\": \"Rajdhani\",\n    \"fromStation\": \"NDLS\",\n    \"toStation\": \"JAT\",\n    \"departureTime\": \"20:20\",\n    \"arrivalTime\": \"05:00\",\n    \"duration\": \"8h 40m\",\n    \"daysOfOperation\": \"Daily\",\n    \"totalSeatsSL\": 0,\n    \"totalSeats3A\": 256,\n    \"totalSeats2A\": 64,\n    \"totalSeats1A\": 24,\n    \"totalSeatsCC\": 0\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/trains",
+							"host": ["{{baseUrl}}"],
+							"path": ["trains"]
+						},
+						"description": "Create a new train (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"203\",\n        \"Train_Number\": \"12425\",\n        \"Train_Name\": \"New Delhi Rajdhani Express\",\n        \"Train_Type\": \"Rajdhani\",\n        \"Is_Active\": \"true\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Train",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainName\": \"Updated Rajdhani Express\",\n    \"departureTime\": \"21:00\",\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/trains/{{trainId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["trains", "{{trainId}}"]
+						},
+						"description": "Update a train (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Train updated\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Train",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/trains/{{trainId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["trains", "{{trainId}}"]
+						},
+						"description": "Delete a train (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Train deleted\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Train management endpoints."
+		},
+		{
+			"name": "05. Train Routes",
+			"item": [
+				{
+					"name": "Get All Routes",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-routes",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-routes"]
+						},
+						"description": "Get all train routes."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"301\",\n            \"Train_ID\": \"201\",\n            \"Route_Name\": \"Delhi-Howrah Route\",\n            \"Total_Distance\": 1447\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Route by ID (with Stops)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-routes/{{routeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-routes", "{{routeId}}"]
+						},
+						"description": "Get a route by ID with all stops."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"301\",\n        \"Train_ID\": \"201\",\n        \"Route_Name\": \"Delhi-Howrah Route\",\n        \"Total_Distance\": 1447,\n        \"stops\": [\n            {\n                \"ROWID\": \"401\",\n                \"Route_ID\": \"301\",\n                \"Station_ID\": \"101\",\n                \"Stop_Sequence\": 1,\n                \"Arrival_Time\": \"-\",\n                \"Departure_Time\": \"16:55\",\n                \"Distance_From_Origin\": 0,\n                \"Platform\": \"8\"\n            },\n            {\n                \"ROWID\": \"402\",\n                \"Route_ID\": \"301\",\n                \"Station_ID\": \"105\",\n                \"Stop_Sequence\": 2,\n                \"Arrival_Time\": \"19:02\",\n                \"Departure_Time\": \"19:05\",\n                \"Distance_From_Origin\": 220,\n                \"Platform\": \"1\"\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Route",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success' && jsonData.data.ROWID) {",
+									"    pm.collectionVariables.set('routeId', jsonData.data.ROWID);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainId\": \"{{trainId}}\",\n    \"routeName\": \"Delhi-Mumbai Route\",\n    \"totalDistance\": 1384\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/train-routes",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-routes"]
+						},
+						"description": "Create a new route (Admin only).\n\n**Lookup:** trainId -> Trains.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"302\",\n        \"Train_ID\": \"202\",\n        \"Route_Name\": \"Delhi-Mumbai Route\",\n        \"Total_Distance\": 1384\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Route Stops",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/train-routes/{{routeId}}/stops",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-routes", "{{routeId}}", "stops"]
+						},
+						"description": "Get all stops for a route."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"401\",\n            \"Station_ID\": \"101\",\n            \"Stop_Sequence\": 1,\n            \"Departure_Time\": \"16:55\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Add Stop to Route",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stationId\": \"{{stationId}}\",\n    \"stopSequence\": 2,\n    \"arrivalTime\": \"19:02\",\n    \"departureTime\": \"19:05\",\n    \"distanceFromOrigin\": 220,\n    \"haltDuration\": 3,\n    \"platform\": \"1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/train-routes/{{routeId}}/stops",
+							"host": ["{{baseUrl}}"],
+							"path": ["train-routes", "{{routeId}}", "stops"]
+						},
+						"description": "Add a stop to a route (Admin only).\n\n**Lookups:**\n- stationId -> Stations.ROWID\n- routeId (path) -> Train_Routes.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"403\",\n        \"Route_ID\": \"301\",\n        \"Station_ID\": \"105\",\n        \"Stop_Sequence\": 2\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "Train route and stops management."
+		},
+		{
+			"name": "06. Bookings",
+			"item": [
+				{
+					"name": "Get All Bookings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/bookings?limit=100&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						},
+						"description": "Get all bookings (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"501\",\n            \"PNR\": \"PNR8A4BC2D1\",\n            \"User_ID\": \"1001\",\n            \"Train_ID\": \"201\",\n            \"Journey_Date\": \"2026-04-15\",\n            \"Travel_Class\": \"3A\",\n            \"Quota\": \"GN\",\n            \"From_Station\": \"NDLS\",\n            \"To_Station\": \"HWH\",\n            \"Booking_Status\": \"Confirmed\",\n            \"Payment_Status\": \"Paid\",\n            \"Total_Fare\": 2450\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Booking by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}"]
+						},
+						"description": "Get a booking by ID with passengers."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"501\",\n        \"PNR\": \"PNR8A4BC2D1\",\n        \"User_ID\": \"1001\",\n        \"Train_ID\": \"201\",\n        \"Journey_Date\": \"2026-04-15\",\n        \"Travel_Class\": \"3A\",\n        \"Booking_Status\": \"Confirmed\",\n        \"Total_Fare\": 2450,\n        \"passengers\": [\n            {\n                \"ROWID\": \"601\",\n                \"Booking_ID\": \"501\",\n                \"Passenger_Name\": \"John Doe\",\n                \"Age\": 35,\n                \"Gender\": \"Male\",\n                \"Berth_Preference\": \"Lower\",\n                \"Seat_Status\": \"CNF\",\n                \"Seat_Number\": \"45\",\n                \"Coach\": \"B1\"\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Booking by PNR",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/pnr/{{pnr}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "pnr", "{{pnr}}"]
+						},
+						"description": "Lookup booking by PNR number (public)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"PNR\": \"PNR8A4BC2D1\",\n        \"Booking_Status\": \"Confirmed\",\n        \"Journey_Date\": \"2026-04-15\",\n        \"passengers\": [\n            {\n                \"Passenger_Name\": \"John Doe\",\n                \"Seat_Status\": \"CNF\",\n                \"Coach\": \"B1\",\n                \"Seat_Number\": \"45\"\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Booking",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success') {",
+									"    if (jsonData.data.booking && jsonData.data.booking.ROWID) {",
+									"        pm.collectionVariables.set('bookingId', jsonData.data.booking.ROWID);",
+									"    }",
+									"    if (jsonData.data.pnr) {",
+									"        pm.collectionVariables.set('pnr', jsonData.data.pnr);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainId\": \"{{trainId}}\",\n    \"journeyDate\": \"2026-04-15\",\n    \"travelClass\": \"3A\",\n    \"quota\": \"GN\",\n    \"fromStation\": \"NDLS\",\n    \"toStation\": \"HWH\",\n    \"totalFare\": 2450,\n    \"passengers\": [\n        {\n            \"name\": \"John Doe\",\n            \"age\": 35,\n            \"gender\": \"Male\",\n            \"berthPreference\": \"Lower\"\n        },\n        {\n            \"name\": \"Jane Doe\",\n            \"age\": 32,\n            \"gender\": \"Female\",\n            \"berthPreference\": \"Lower\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings"]
+						},
+						"description": "Create a new booking.\n\n**Lookup:** trainId -> Trains.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"booking\": {\n            \"ROWID\": \"501\",\n            \"PNR\": \"PNR8A4BC2D1\",\n            \"User_ID\": \"1001\",\n            \"Train_ID\": \"201\",\n            \"Booking_Status\": \"Pending\"\n        },\n        \"pnr\": \"PNR8A4BC2D1\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Pay for Booking",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/pay",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "pay"]
+						},
+						"description": "Mark booking as paid."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Payment recorded\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Cancel Booking",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Change of plans\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/cancel",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "cancel"]
+						},
+						"description": "Cancel a booking."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Booking cancelled\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Confirm Booking (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/confirm",
+							"host": ["{{baseUrl}}"],
+							"path": ["bookings", "{{bookingId}}", "confirm"]
+						},
+						"description": "Confirm a booking (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Booking confirmed\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get User Bookings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}/bookings",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{userId}}", "bookings"]
+						},
+						"description": "Get all bookings for a user.\n\n**Lookup:** userId -> Users.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"501\",\n            \"PNR\": \"PNR8A4BC2D1\",\n            \"Journey_Date\": \"2026-04-15\",\n            \"Booking_Status\": \"Confirmed\"\n        }\n    ]\n}"
+						}
+					]
+				}
+			],
+			"description": "Booking management endpoints."
+		},
+		{
+			"name": "07. Fares",
+			"item": [
+				{
+					"name": "Get All Fares",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/fares",
+							"host": ["{{baseUrl}}"],
+							"path": ["fares"]
+						},
+						"description": "Get all fare rules."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"701\",\n            \"Train_Type\": \"Rajdhani\",\n            \"Travel_Class\": \"3A\",\n            \"Base_Rate_Per_Km\": 1.70,\n            \"Min_Fare\": 260,\n            \"Max_Fare\": 4500\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Calculate Fare",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"distance\": 1447,\n    \"travelClass\": \"3A\",\n    \"isTatkal\": false,\n    \"isSuperfast\": true,\n    \"concession\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/fares/calculate",
+							"host": ["{{baseUrl}}"],
+							"path": ["fares", "calculate"]
+						},
+						"description": "Calculate fare for a journey."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"baseFare\": 2459.90,\n        \"reservationCharge\": 40,\n        \"superfastSurcharge\": 45,\n        \"tatkalCharge\": 0,\n        \"subtotal\": 2544.90,\n        \"gst\": 127.25,\n        \"concessionDiscount\": 0,\n        \"totalFare\": 2672.15\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Fare Rule",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainType\": \"Shatabdi\",\n    \"travelClass\": \"CC\",\n    \"baseRatePerKm\": 1.25,\n    \"minFare\": 130,\n    \"maxFare\": 2500\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/fares",
+							"host": ["{{baseUrl}}"],
+							"path": ["fares"]
+						},
+						"description": "Create a new fare rule (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"702\",\n        \"Train_Type\": \"Shatabdi\",\n        \"Travel_Class\": \"CC\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "Fare management and calculation endpoints."
+		},
+		{
+			"name": "08. Inventory",
+			"item": [
+				{
+					"name": "Get Inventory",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/inventory?trainId={{trainId}}&journeyDate=2026-04-15",
+							"host": ["{{baseUrl}}"],
+							"path": ["inventory"],
+							"query": [
+								{
+									"key": "trainId",
+									"value": "{{trainId}}"
+								},
+								{
+									"key": "journeyDate",
+									"value": "2026-04-15"
+								}
+							]
+						},
+						"description": "Get seat inventory for a train and date."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"801\",\n            \"Train_ID\": \"201\",\n            \"Journey_Date\": \"2026-04-15\",\n            \"Available_Seats_SL\": 0,\n            \"Available_Seats_3A\": 256,\n            \"Available_Seats_2A\": 64,\n            \"Available_Seats_1A\": 24,\n            \"Available_Seats_CC\": 0\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Inventory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainId\": \"{{trainId}}\",\n    \"journeyDate\": \"2026-04-20\",\n    \"availableSeatsSL\": 0,\n    \"availableSeats3A\": 384,\n    \"availableSeats2A\": 92,\n    \"availableSeats1A\": 36,\n    \"availableSeatsCC\": 0\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/inventory",
+							"host": ["{{baseUrl}}"],
+							"path": ["inventory"]
+						},
+						"description": "Create inventory record (Admin only).\n\n**Lookup:** trainId -> Trains.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"802\",\n        \"Train_ID\": \"201\",\n        \"Journey_Date\": \"2026-04-20\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "Seat inventory management."
+		},
+		{
+			"name": "09. Quotas",
+			"item": [
+				{
+					"name": "Get All Quotas",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/quotas",
+							"host": ["{{baseUrl}}"],
+							"path": ["quotas"]
+						},
+						"description": "Get all quota allocations."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"901\",\n            \"Train_ID\": \"201\",\n            \"Quota_Type\": \"GN\",\n            \"Travel_Class\": \"3A\",\n            \"Seats_Allocated\": 300\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Quota Types",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/quotas/types",
+							"host": ["{{baseUrl}}"],
+							"path": ["quotas", "types"]
+						},
+						"description": "Get all quota type definitions."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"GN\": \"General Quota\",\n        \"TK\": \"Tatkal Quota\",\n        \"PT\": \"Premium Tatkal\",\n        \"LD\": \"Ladies Quota\",\n        \"HP\": \"Handicapped Quota\",\n        \"DF\": \"Defence Quota\",\n        \"FT\": \"Foreign Tourist Quota\",\n        \"SS\": \"Senior Citizen Quota\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Quota",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"trainId\": \"{{trainId}}\",\n    \"quotaType\": \"GN\",\n    \"travelClass\": \"3A\",\n    \"seatsAllocated\": 300\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quotas",
+							"host": ["{{baseUrl}}"],
+							"path": ["quotas"]
+						},
+						"description": "Create quota allocation (Admin only).\n\n**Lookup:** trainId -> Trains.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"901\",\n        \"Train_ID\": \"201\",\n        \"Quota_Type\": \"GN\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "Quota management endpoints."
+		},
+		{
+			"name": "10. Announcements",
+			"item": [
+				{
+					"name": "Get All Announcements",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/announcements",
+							"host": ["{{baseUrl}}"],
+							"path": ["announcements"]
+						},
+						"description": "Get all announcements."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"1001\",\n            \"Title\": \"Platform Change Alert\",\n            \"Message\": \"Train 12301 will depart from Platform 9\",\n            \"Type\": \"warning\",\n            \"Priority\": \"high\",\n            \"Is_Active\": \"true\",\n            \"Created_At\": \"2026-03-27T08:00:00\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Active Announcements",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/announcements/active",
+							"host": ["{{baseUrl}}"],
+							"path": ["announcements", "active"]
+						},
+						"description": "Get only active announcements."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Announcement",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Maintenance Notice\",\n    \"message\": \"Online booking will be unavailable from 2 AM to 4 AM for scheduled maintenance.\",\n    \"type\": \"info\",\n    \"priority\": \"normal\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/announcements",
+							"host": ["{{baseUrl}}"],
+							"path": ["announcements"]
+						},
+						"description": "Create announcement (Admin only).\n\n**Types:** info, warning, error, success\n**Priorities:** low, normal, high"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1002\",\n        \"Title\": \"Maintenance Notice\",\n        \"Type\": \"info\",\n        \"Is_Active\": \"true\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "System announcements endpoints."
+		},
+		{
+			"name": "11. Settings",
+			"item": [
+				{
+					"name": "Get All Settings",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/settings",
+							"host": ["{{baseUrl}}"],
+							"path": ["settings"]
+						},
+						"description": "Get all system settings."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"1101\",\n            \"Setting_Key\": \"booking_advance_days\",\n            \"Setting_Value\": \"120\",\n            \"Description\": \"Days in advance tickets can be booked\",\n            \"Category\": \"booking\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Setting by Key",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/settings/key/booking_advance_days",
+							"host": ["{{baseUrl}}"],
+							"path": ["settings", "key", "booking_advance_days"]
+						},
+						"description": "Get a specific setting by key."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1101\",\n        \"Setting_Key\": \"booking_advance_days\",\n        \"Setting_Value\": \"120\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Setting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"key\": \"max_passengers_per_booking\",\n    \"value\": \"6\",\n    \"description\": \"Maximum passengers allowed per booking\",\n    \"category\": \"booking\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/settings",
+							"host": ["{{baseUrl}}"],
+							"path": ["settings"]
+						},
+						"description": "Create a system setting (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1102\",\n        \"Setting_Key\": \"max_passengers_per_booking\",\n        \"Setting_Value\": \"6\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "System settings management."
+		},
+		{
+			"name": "12. Admin Logs",
+			"item": [
+				{
+					"name": "Get All Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/logs?limit=100&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "logs"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								},
+								{
+									"key": "actionType",
+									"value": "CREATE",
+									"disabled": true
+								},
+								{
+									"key": "userEmail",
+									"value": "admin@railway.com",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all admin logs (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"1201\",\n            \"User_Email\": \"admin@railway.com\",\n            \"Action_Type\": \"CREATE\",\n            \"Action_Details\": \"Created train 12425\",\n            \"Entity_Type\": \"Train\",\n            \"Entity_ID\": \"203\",\n            \"IP_Address\": \"192.168.1.100\",\n            \"Timestamp\": \"2026-03-27T10:30:00\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Log Entry",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"actionType\": \"UPDATE\",\n    \"actionDetails\": \"Updated fare rules for Rajdhani trains\",\n    \"entityType\": \"Fare\",\n    \"entityId\": \"701\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/logs",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "logs"]
+						},
+						"description": "Create an audit log entry (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1202\",\n        \"User_Email\": \"admin@railway.com\",\n        \"Action_Type\": \"UPDATE\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "Admin audit log endpoints."
+		},
+		{
+			"name": "13. Admin Users",
+			"item": [
+				{
+					"name": "Get Admin Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "users"]
+						},
+						"description": "Get all admin users (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"ROWID\": \"1002\",\n            \"Full_Name\": \"Admin User\",\n            \"Email\": \"admin@railway.com\",\n            \"Role\": \"Admin\",\n            \"Account_Status\": \"Active\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Admin User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"New Admin\",\n    \"email\": \"newadmin@catalyst-cs2.onslate.in\",\n    \"password\": \"AdminPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "users"]
+						},
+						"description": "Create a new admin user (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"ROWID\": \"1003\",\n        \"Full_Name\": \"New Admin\",\n        \"Email\": \"newadmin@catalyst-cs2.onslate.in\",\n        \"Role\": \"Admin\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Promote to Admin",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/users/{{userId}}/promote",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "users", "{{userId}}", "promote"]
+						},
+						"description": "Promote a regular user to admin (Admin only).\n\n**Lookup:** userId -> Users.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"User promoted to admin\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Demote from Admin",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/users/{{userId}}/demote",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "users", "{{userId}}", "demote"]
+						},
+						"description": "Demote an admin to regular user (Admin only).\n\n**Lookup:** userId -> Users.ROWID"
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Admin demoted to user\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Admin user management endpoints."
+		},
+		{
+			"name": "14. Module Master",
+			"item": [
+				{
+					"name": "Get All Modules",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/modules?limit=100&offset=0&active=true",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								},
+								{
+									"key": "active",
+									"value": "true"
+								},
+								{
+									"key": "category",
+									"value": "Admin",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "Dashboard",
+									"disabled": true
+								},
+								{
+									"key": "orderBy",
+									"value": "Display_Order ASC",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all modules with optional filtering."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"id\": \"1401\",\n            \"moduleName\": \"Dashboard\",\n            \"moduleCode\": \"DASHBOARD\",\n            \"description\": \"Main analytics dashboard\",\n            \"category\": \"Admin\",\n            \"displayOrder\": 1,\n            \"isActive\": true,\n            \"icon\": \"dashboard\",\n            \"route\": \"/admin/dashboard\",\n            \"permissions\": \"view_dashboard\",\n            \"parentModuleId\": \"\",\n            \"createdAt\": \"2026-03-27T10:00:00\",\n            \"updatedAt\": \"2026-03-27T10:00:00\"\n        }\n    ],\n    \"meta\": {\n        \"total\": 1,\n        \"limit\": 100,\n        \"offset\": 0,\n        \"cached\": false\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Module by ID",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/modules/{{moduleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules", "{{moduleId}}"]
+						},
+						"description": "Get a specific module by ID."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"id\": \"1401\",\n        \"moduleName\": \"Dashboard\",\n        \"moduleCode\": \"DASHBOARD\",\n        \"description\": \"Main analytics dashboard\",\n        \"category\": \"Admin\",\n        \"displayOrder\": 1,\n        \"isActive\": true,\n        \"icon\": \"dashboard\",\n        \"route\": \"/admin/dashboard\",\n        \"permissions\": \"view_dashboard\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Module",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success' && jsonData.data.id) {",
+									"    pm.collectionVariables.set('moduleId', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"moduleName\": \"Train Management\",\n    \"moduleCode\": \"TRAIN_MGMT\",\n    \"description\": \"Manage trains and schedules\",\n    \"category\": \"Operations\",\n    \"displayOrder\": 3,\n    \"isActive\": true,\n    \"icon\": \"train\",\n    \"route\": \"/admin/trains\",\n    \"permissions\": \"manage_trains\",\n    \"parentModuleId\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/modules",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules"]
+						},
+						"description": "Create a new module (Admin only).\n\n**Rate Limit:** 50 requests/hour\n\n**Lookup:** parentModuleId -> Module_Master.ROWID (optional)"
+					},
+					"response": [
+						{
+							"name": "Success (201)",
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Module created successfully\",\n    \"data\": {\n        \"id\": \"1403\",\n        \"moduleName\": \"Train Management\",\n        \"moduleCode\": \"TRAIN_MGMT\",\n        \"description\": \"Manage trains and schedules\",\n        \"category\": \"Operations\",\n        \"displayOrder\": 3,\n        \"isActive\": true\n    }\n}"
+						},
+						{
+							"name": "Duplicate (409)",
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Module with code \\\"TRAIN_MGMT\\\" already exists\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Module",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Updated module description\",\n    \"displayOrder\": 5,\n    \"isActive\": true,\n    \"icon\": \"new-icon\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/modules/{{moduleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules", "{{moduleId}}"]
+						},
+						"description": "Update a module (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Module updated successfully\",\n    \"data\": {\n        \"id\": \"1403\",\n        \"moduleName\": \"Train Management\",\n        \"description\": \"Updated module description\",\n        \"displayOrder\": 5\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Module",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/modules/{{moduleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules", "{{moduleId}}"]
+						},
+						"description": "Delete a module (Admin only).\n\n**Note:** Cannot delete if module has children."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Module deleted successfully\"\n}"
+						},
+						{
+							"name": "Has Children (400)",
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Cannot delete module with child modules. Delete children first.\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Toggle Module Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/modules/{{moduleId}}/toggle-status",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules", "{{moduleId}}", "toggle-status"]
+						},
+						"description": "Toggle module active status (Admin only)."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Module deactivated successfully\",\n    \"data\": {\n        \"id\": \"1403\",\n        \"isActive\": false\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Module Hierarchy",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/modules/hierarchy",
+							"host": ["{{baseUrl}}"],
+							"path": ["modules", "hierarchy"]
+						},
+						"description": "Get modules in nested hierarchical structure."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"id\": \"1401\",\n            \"moduleName\": \"Administration\",\n            \"moduleCode\": \"ADMIN\",\n            \"displayOrder\": 1,\n            \"isActive\": true,\n            \"children\": [\n                {\n                    \"id\": \"1402\",\n                    \"moduleName\": \"User Management\",\n                    \"moduleCode\": \"USER_MGMT\",\n                    \"displayOrder\": 1,\n                    \"isActive\": true,\n                    \"children\": []\n                }\n            ]\n        }\n    ]\n}"
+						}
+					]
+				}
+			],
+			"description": "Module/Feature management endpoints."
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "API Root",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/",
+							"host": ["{{baseUrl}}"],
+							"path": [""]
+						},
+						"description": "API root endpoint with version info."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Smart Railway Ticketing System API\",\n    \"version\": \"2.0.0\",\n    \"runtime\": \"Zoho Catalyst Functions + CloudScale Database\",\n    \"endpoints\": {\n        \"health\": \"/health\",\n        \"auth\": \"/auth/*\",\n        \"users\": \"/users\",\n        \"trains\": \"/trains\",\n        \"stations\": \"/stations\",\n        \"bookings\": \"/bookings\",\n        \"fares\": \"/fares\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Health check endpoint with system status."
+					},
+					"response": [
+						{
+							"name": "Success (200)",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"status\": \"healthy\",\n    \"timestamp\": \"2026-03-27T10:30:00.000Z\",\n    \"version\": \"2.0.0\",\n    \"runtime\": \"Catalyst Functions + CloudScale\",\n    \"cloudscale\": {\n        \"initialized\": true\n    },\n    \"cache\": {\n        \"total_keys\": 5,\n        \"expired_keys\": 0,\n        \"live_keys\": 5,\n        \"hits\": 42,\n        \"misses\": 8,\n        \"hit_rate\": \"84.0%\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Debug - Table Columns",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/debug/columns",
+							"host": ["{{baseUrl}}"],
+							"path": ["debug", "columns"]
+						},
+						"description": "Debug endpoint to list Users table columns."
+					},
+					"response": []
+				},
+				{
+					"name": "Debug - Config",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/debug/config",
+							"host": ["{{baseUrl}}"],
+							"path": ["debug", "config"]
+						},
+						"description": "Debug endpoint to show configuration."
+					},
+					"response": []
+				}
+			],
+			"description": "Health and debug endpoints."
+		}
+	]
+}
