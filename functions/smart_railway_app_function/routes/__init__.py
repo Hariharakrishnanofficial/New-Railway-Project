@@ -108,3 +108,7 @@ def register_blueprints(app):
     # Reliable Railway Data Creation (CloudScale Persistence Fix)
     from routes.reliable_railway_data import reliable_railway_data_bp
     app.register_blueprint(reliable_railway_data_bp)
+
+    # Train CRUD Focus (Systematic ROWID Discovery)
+    from routes.train_crud import train_crud_bp
+    app.register_blueprint(train_crud_bp)
