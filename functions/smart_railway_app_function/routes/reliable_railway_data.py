@@ -225,7 +225,9 @@ def create_with_verification(table_name, record_data, verification_field, verifi
             }
 
         zcql = catalyst_app.zcql()
-        verify_query = f"SELECT * FROM {table_name} WHERE {verification_field} = '{verification_value}'"
+        # Use specific field names instead of SELECT * (CloudScale Functions requirement)
+        verify_query = f"SELECT ROWID, {verification_field} FROM {table_name} WHERE {verification_field} = '{verification_value}'"
+        logger.info(f"Verification query: {verify_query}")
         verify_result = zcql.execute_query(verify_query)
 
         # Step 3: Verify actual persistence
@@ -261,9 +263,12 @@ def get_existing_stations_rowid_map():
         if not catalyst_app:
             return {}
 
-        # Query existing stations to get ROWIDs
+        # Use specific field names instead of SELECT * (CloudScale Functions requirement)
         query = "SELECT Station_Code, ROWID FROM Stations WHERE Station_Code IN ('MMCT', 'NDLS', 'BNC')"
+        logger.info(f"Executing ZCQL query: {query}")
+
         result = catalyst_app.zcql().execute_query(query)
+        logger.info(f"ZCQL result type: {type(result)}, content: {result}")
 
         if result and isinstance(result, list):
             rowid_map = {}
@@ -277,7 +282,7 @@ def get_existing_stations_rowid_map():
             logger.info(f"Existing station ROWID mapping: {rowid_map}")
             return rowid_map
         else:
-            logger.info("No existing stations found")
+            logger.warning(f"No existing stations found or unexpected result format: {result}")
             return {}
 
     except Exception as e:
