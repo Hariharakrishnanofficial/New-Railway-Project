@@ -261,14 +261,15 @@ def get_existing_stations_rowid_map():
     try:
         catalyst_app = get_catalyst_app()
         if not catalyst_app:
+            logger.error("Catalyst app not available")
             return {}
 
-        # Use specific field names instead of SELECT * (CloudScale Functions requirement)
+        # Use direct ZCQL query to bypass caching issues
         query = "SELECT Station_Code, ROWID FROM Stations WHERE Station_Code IN ('MMCT', 'NDLS', 'BNC')"
-        logger.info(f"Executing ZCQL query: {query}")
+        logger.info(f"Executing ZCQL query to get station ROWIDs: {query}")
 
         result = catalyst_app.zcql().execute_query(query)
-        logger.info(f"ZCQL result type: {type(result)}, content: {result}")
+        logger.info(f"ZCQL query result: {result}")
 
         if result and isinstance(result, list):
             rowid_map = {}
@@ -279,11 +280,40 @@ def get_existing_stations_rowid_map():
                     rowid_map[code] = rowid
                     logger.info(f"Found existing station: {code} -> ROWID {rowid}")
 
-            logger.info(f"Existing station ROWID mapping: {rowid_map}")
+            logger.info(f"Final station ROWID mapping: {rowid_map}")
             return rowid_map
-        else:
-            logger.warning(f"No existing stations found or unexpected result format: {result}")
+
+        elif isinstance(result, dict) and result.get('success') == False:
+            # Handle query error response
+            logger.error(f"ZCQL query failed: {result.get('error', 'Unknown error')}")
             return {}
+
+        else:
+            logger.warning(f"Unexpected ZCQL result format: {type(result)} = {result}")
+
+            # Fallback: Try using cloudscale_repo.get_all_records directly
+            logger.info("Attempting fallback using cloudscale repository...")
+            from repositories.cloudscale_repository import cloudscale_repo
+
+            stations_result = cloudscale_repo.get_all_records('stations', limit=10)
+            logger.info(f"Fallback stations result: {stations_result}")
+
+            if stations_result.get('success') and stations_result.get('data', {}).get('data'):
+                stations = stations_result['data']['data']
+                rowid_map = {}
+
+                for station in stations:
+                    code = station.get('Station_Code')
+                    rowid = station.get('ROWID')
+                    if code and rowid and code in ['MMCT', 'NDLS', 'BNC']:
+                        rowid_map[code] = rowid
+                        logger.info(f"Fallback found station: {code} -> ROWID {rowid}")
+
+                logger.info(f"Fallback station ROWID mapping: {rowid_map}")
+                return rowid_map
+            else:
+                logger.error(f"Fallback also failed: {stations_result}")
+                return {}
 
     except Exception as e:
         logger.exception(f"Error getting existing station ROWIDs: {e}")
