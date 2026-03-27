@@ -271,8 +271,17 @@ class CloudScaleRepository:
         try:
             actual_table = self._resolve_table(table_name)
 
-            # Build ZCQL query
-            query = f"SELECT * FROM {actual_table}"
+            # Build ZCQL query - avoid SELECT * as it's not supported in CloudScale Functions
+            if actual_table == 'Stations':
+                # Use specific fields for Stations to avoid SELECT * error
+                query = f"SELECT ROWID, Station_Code, Station_Name, City, State, Zone, Division, Station_Type, Number_of_Platforms, Latitude, Longitude, Is_Active FROM {actual_table}"
+            elif actual_table == 'Trains':
+                # Use specific fields for Trains
+                query = f"SELECT ROWID, Train_Number, Train_Name, Train_Type, From_Station, To_Station, Departure_Time, Arrival_Time, Duration, Distance, Run_Days, Is_Active FROM {actual_table}"
+            else:
+                # For other tables, use ROWID + a safe field to avoid SELECT *
+                query = f"SELECT ROWID FROM {actual_table}"
+                logger.warning(f"Using minimal field selection for table {actual_table} to avoid SELECT * error")
 
             if criteria:
                 query += f" WHERE {criteria}"
@@ -298,7 +307,13 @@ class CloudScaleRepository:
         try:
             actual_table = self._resolve_table(table_name)
 
-            query = f"SELECT * FROM {actual_table} WHERE ROWID = {record_id}"
+            # Use specific fields instead of SELECT * (CloudScale Functions requirement)
+            if actual_table == 'Stations':
+                query = f"SELECT ROWID, Station_Code, Station_Name, City, State, Zone, Division, Station_Type, Number_of_Platforms, Latitude, Longitude, Is_Active FROM {actual_table} WHERE ROWID = {record_id}"
+            elif actual_table == 'Trains':
+                query = f"SELECT ROWID, Train_Number, Train_Name, Train_Type, From_Station, To_Station, Departure_Time, Arrival_Time, Duration, Distance, Run_Days, Is_Active FROM {actual_table} WHERE ROWID = {record_id}"
+            else:
+                query = f"SELECT ROWID FROM {actual_table} WHERE ROWID = {record_id}"
             result = self.execute_query(query)
 
             if result.get("success"):
