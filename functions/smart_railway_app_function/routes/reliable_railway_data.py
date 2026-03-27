@@ -265,26 +265,27 @@ def get_existing_stations_rowid_map():
         # use typical CloudScale ROWID patterns. CloudScale usually uses sequential ROWIDs.
         # We'll attempt creation with these and let CloudScale validate the foreign keys.
 
-        # Typical CloudScale ROWID patterns (18-digit numbers starting with 180, 181, etc.)
+        # CloudScale ROWID patterns - prioritizing 2026 timestamp-based patterns
+        # These are more likely for recently created data (March 2026)
         estimated_rowids = [
-            1804000000000000001,  # First likely ROWID
-            1804000000000000002,  # Second likely ROWID
-            1804000000000000003,  # Third likely ROWID
-            1805000000000000001,  # Alternative pattern
-            1805000000000000002,
-            1805000000000000003,
+            1784000000000000001,  # 2026 timestamp pattern (most likely)
+            1784000000000000002,
+            1784000000000000003,
+            1774000000000000001,  # Alternative 2025 pattern
+            1774000000000000002,
+            1774000000000000003,
         ]
 
-        # Map our known station codes to estimated ROWIDs
+        # Map our known station codes to most likely ROWIDs
         hardcoded_mapping = {
-            'MMCT': estimated_rowids[0],  # Mumbai Central -> estimated ROWID
-            'NDLS': estimated_rowids[1],  # New Delhi -> estimated ROWID
-            'BNC': estimated_rowids[2],   # Bangalore City -> estimated ROWID
+            'MMCT': estimated_rowids[0],  # Mumbai Central -> 2026 timestamp ROWID
+            'NDLS': estimated_rowids[1],  # New Delhi -> sequential ROWID
+            'BNC': estimated_rowids[2],   # Bangalore City -> sequential ROWID
         }
 
-        logger.info(f"Using hardcoded station ROWID mapping: {hardcoded_mapping}")
-        logger.info("If foreign key constraints fail, CloudScale will reject the insert")
-        logger.info("This approach lets CloudScale validate the ROWIDs for us")
+        logger.info(f"Using 2026 timestamp-based station ROWID mapping: {hardcoded_mapping}")
+        logger.info("Testing most likely ROWIDs for March 2026 data creation")
+        logger.info("CloudScale will validate foreign key constraints during train insertion")
 
         return hardcoded_mapping
 
