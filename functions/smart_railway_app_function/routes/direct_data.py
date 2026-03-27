@@ -204,8 +204,14 @@ def verify_all_data():
                 count_query = f"SELECT COUNT(*) as record_count FROM {table_name}"
                 count_result = zcql.execute_query(count_query)
 
-                # Get sample records
-                sample_query = f"SELECT * FROM {table_name} LIMIT 3"
+                # Get sample records - use specific fields to avoid SELECT * error in CloudScale Functions
+                if table_name == 'Stations':
+                    sample_query = f"SELECT ROWID, Station_Code, Station_Name, City, State FROM {table_name} LIMIT 3"
+                elif table_name == 'Trains':
+                    sample_query = f"SELECT ROWID, Train_Number, Train_Name, Train_Type FROM {table_name} LIMIT 3"
+                else:
+                    sample_query = f"SELECT ROWID FROM {table_name} LIMIT 3"
+
                 sample_result = zcql.execute_query(sample_query)
 
                 verification_results[table_name.lower()] = {
@@ -304,8 +310,14 @@ def bulk_populate_all_modules():
                     except Exception as record_error:
                         logger.error(f"Failed to insert record in {table_name}: {record_error}")
 
-                # Verify by querying
-                verify_query = f"SELECT * FROM {table_name} LIMIT 10"
+                # Verify by querying - use specific fields to avoid SELECT * error
+                if table_name == 'Stations':
+                    verify_query = f"SELECT ROWID, Station_Code, Station_Name FROM {table_name} LIMIT 10"
+                elif table_name == 'Trains':
+                    verify_query = f"SELECT ROWID, Train_Number, Train_Name FROM {table_name} LIMIT 10"
+                else:
+                    verify_query = f"SELECT ROWID FROM {table_name} LIMIT 10"
+
                 verify_result = zcql.execute_query(verify_query)
                 actual_count = len(verify_result) if verify_result else 0
 
