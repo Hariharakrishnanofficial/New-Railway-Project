@@ -774,10 +774,10 @@ def verify_persistence():
         zcql = catalyst_app.zcql()
 
         verification_queries = {
-            'stations': "SELECT COUNT(*) as count FROM Stations WHERE Station_Code IN ('MMCT', 'NDLS', 'BNC')",
-            'trains': "SELECT COUNT(*) as count FROM Trains WHERE Train_Number IN ('12951', '12002')",
-            'fares': "SELECT COUNT(*) as count FROM Fares WHERE From_Station IN ('MMCT', 'NDLS') AND To_Station IN ('NDLS', 'BNC')",
-            'quotas': "SELECT COUNT(*) as count FROM Quotas WHERE Train IS NOT NULL AND Quota_Type IN ('General', 'Tatkal')"
+            'stations': "SELECT COUNT(1) as count FROM Stations WHERE Station_Code IN ('MMCT', 'NDLS', 'BNC')",
+            'trains': "SELECT COUNT(1) as count FROM Trains WHERE Train_Number IN ('12951', '12002')",
+            'fares': "SELECT COUNT(1) as count FROM Fares WHERE Train_Type IN ('Rajdhani', 'Shatabdi', 'Mail/Express')",
+            'quotas': "SELECT COUNT(1) as count FROM Quotas WHERE Train_ID IS NOT NULL AND Quota_Type IN ('GN', 'TK')"
         }
 
         verification_results = {}
