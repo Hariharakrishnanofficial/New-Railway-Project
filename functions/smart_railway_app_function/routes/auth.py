@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 
+
 from repositories.cloudscale_repository import cloudscale_repo, CriteriaBuilder
 from config import TABLES
 from core.security import (
@@ -52,7 +53,12 @@ def _build_user_response(user_row: dict) -> dict:
 @rate_limit(max_calls=10, window_seconds=3600)
 def register():
     """Register a new user account."""
+
     data = request.get_json(silent=True)
+    logger.exception(f'Auth post data: {data}')
+    if data is None:
+        data = request.form.to_dict()
+
     if not data:
         return jsonify({'status': 'error', 'message': 'No data provided'}), 400
 
