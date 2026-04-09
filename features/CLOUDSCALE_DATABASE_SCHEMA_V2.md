@@ -22,6 +22,9 @@
 | 13 | Admin_Logs | Admin_Logs | All_Admin_Logs | Admin audit trail |
 | 14 | Settings | Settings | All_Setting | System configuration |
 | 15 | Password_Reset_Tokens | Password_Reset_Tokens | All_Reset_Tokens | Password reset OTP |
+| 16 | Sessions | Sessions | All_Sessions | Server-side session management |
+| 17 | Session_Audit_Log | Session_Audit_Log | All_Session_Audit | Session security audit trail |
+| 18 | OTP_Tokens | OTP_Tokens | All_OTP_Tokens | Multi-purpose OTP verification |
 
 ---
 
@@ -443,6 +446,105 @@ Temporary OTP tokens for password reset
 
 ---
 
+### 16. SESSIONS
+Server-side session management with HttpOnly cookies (replaces JWT tokens)
+
+| Field | Type | Required | Unique | Description |
+|-------|------|----------|--------|-------------|
+| ID | BIGINT | PK | Yes | Auto-generated record ID (ROWID) |
+| Session_ID | VARCHAR(64) | Yes | Yes | Secure 43-char session token |
+| User_ID | VARCHAR(20) | Yes | - | Reference to Users.ID (ROWID) |
+| User_Email | VARCHAR(255) | Yes | - | User email (denormalized) |
+| User_Role | VARCHAR(20) | Yes | - | 'Admin' \| 'User' |
+| IP_Address | VARCHAR(45) | - | - | Client IPv4/IPv6 address |
+| User_Agent | VARCHAR(500) | - | - | Browser/device User-Agent |
+| Device_Fingerprint | VARCHAR(64) | - | - | SHA-256 hash of device info |
+| CSRF_Token | VARCHAR(64) | Yes | - | CSRF protection token |
+| Created_At | DATETIME | Yes | - | Session creation timestamp |
+| Last_Accessed_At | DATETIME | Yes | - | Last activity timestamp |
+| Expires_At | DATETIME | Yes | - | Session expiration timestamp |
+| Is_Active | VARCHAR(10) | Yes | - | 'true' \| 'false' |
+| Created_Time | DATETIME | Auto | - | Record creation time |
+
+**Indexes:**
+- `idx_sessions_session_id` UNIQUE (Session_ID)
+- `idx_sessions_user_id` (User_ID)
+- `idx_sessions_active` (Is_Active)
+- `idx_sessions_expires` (Expires_At)
+
+**Usage Notes:**
+- Session_ID: Generated with `secrets.token_urlsafe(32)` - 256-bit entropy
+- Max 3 concurrent sessions per user (oldest auto-revoked)
+- 24-hour session timeout with sliding window
+- Idle timeout: 6 hours of inactivity
+- CSRF token required for POST/PUT/DELETE/PATCH requests
+
+---
+
+### 17. SESSION_AUDIT_LOG
+Security audit trail for session-related events
+
+| Field | Type | Required | Unique | Description |
+|-------|------|----------|--------|-------------|
+| ID | BIGINT | PK | Yes | Auto-generated record ID (ROWID) |
+| Event_Type | VARCHAR(50) | Yes | - | Type of security event |
+| Session_ID | VARCHAR(64) | - | - | Related session (may be partial) |
+| User_ID | VARCHAR(20) | - | - | Related user's ROWID |
+| User_Email | VARCHAR(255) | - | - | User email at time of event |
+| IP_Address | VARCHAR(45) | - | - | Client IP address |
+| Event_Timestamp | DATETIME | Yes | - | When event occurred |
+| Details | TEXT | - | - | JSON with additional data |
+| Severity | VARCHAR(20) | - | - | INFO, WARNING, ERROR, CRITICAL |
+| Created_Time | DATETIME | Auto | - | Record creation time |
+
+**Event Types:**
+| Event_Type | Severity | Description |
+|------------|----------|-------------|
+| SESSION_CREATED | INFO | New session on login/register |
+| SESSION_VALIDATED | INFO | Session successfully validated |
+| SESSION_EXPIRED | INFO | Session timed out |
+| SESSION_REVOKED | INFO | User logged out |
+| SESSION_REVOKED_ADMIN | WARNING | Admin terminated session |
+| SESSION_LIMIT_ENFORCED | INFO | Oldest session auto-revoked |
+| CSRF_VALIDATION_FAILED | WARNING | CSRF token mismatch |
+| SESSION_INVALID | WARNING | Invalid session ID presented |
+| PASSWORD_CHANGED | INFO | All sessions revoked |
+| SUSPICIOUS_ACTIVITY | CRITICAL | Potential security threat |
+
+**Indexes:**
+- `idx_audit_user_id` (User_ID)
+- `idx_audit_event_type` (Event_Type)
+- `idx_audit_timestamp` (Event_Timestamp)
+
+---
+
+### 18. OTP_TOKENS
+Multi-purpose OTP verification tokens (registration, password reset, email change)
+
+| Field | Type | Required | Unique | Description |
+|-------|------|----------|--------|-------------|
+| ID | BIGINT | PK | Yes | Auto-generated record ID (ROWID) |
+| User_Email | VARCHAR(255) | Yes | - | Email address for OTP |
+| OTP | VARCHAR(10) | Yes | - | 6-digit OTP code |
+| Purpose | VARCHAR(30) | Yes | - | 'registration' \| 'password_reset' \| 'email_change' |
+| Expires_At | DATETIME | Yes | - | OTP expiration (15 min default) |
+| Is_Used | VARCHAR(10) | Yes | - | 'true' \| 'false' |
+| Attempts | INT | Yes | - | Verification attempt count (max 3) |
+| Created_At | DATETIME | Yes | - | Token creation timestamp |
+| Created_Time | DATETIME | Auto | - | Record creation time |
+
+**Notes:**
+- OTPs expire after 15 minutes
+- Maximum 3 verification attempts before lockout
+- Only one active OTP per email+purpose combination
+- Cleanup old unused OTPs before creating new ones
+
+**Indexes:**
+- `idx_otp_email_purpose` (User_Email, Purpose)
+- `idx_otp_expires` (Expires_At)
+
+---
+
 ## RELATIONSHIPS DIAGRAM
 
 ```
@@ -455,11 +557,22 @@ Temporary OTP tokens for password reset
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │ ADMIN_LOGS  │     │  PASSENGERS  │     │TRAIN_ROUTES │
 └─────────────┘     └──────────────┘     └─────────────┘
-                                               │
-                                               ▼
-                                         ┌─────────────┐
-                                         │ ROUTE_STOPS │
-                                         └─────────────┘
+      │                                        │
+      │                                        ▼
+      │                                  ┌─────────────┐
+      │                                  │ ROUTE_STOPS │
+      │                                  └─────────────┘
+      │
+      ▼
+┌─────────────────┐     ┌─────────────────────┐
+│    SESSIONS     │────>│  SESSION_AUDIT_LOG  │
+└─────────────────┘     └─────────────────────┘
+      │
+      │ (User_ID FK)
+      ▼
+┌─────────────┐
+│    USERS    │
+└─────────────┘
 
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │  STATIONS   │<────│    FARES     │────>│   TRAINS    │

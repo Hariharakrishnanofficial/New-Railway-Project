@@ -1,0 +1,1177 @@
+{
+  "info": {
+    "title": "Smart Railway Ticketing System API",
+    "version": "2.0.0",
+    "description": "Complete REST API for Railway Ticketing System with CloudScale database"
+  },
+  "baseUrl": "http://localhost:9000",
+  "authentication": {
+    "type": "Bearer",
+    "header": "Authorization",
+    "format": "Bearer {token}"
+  },
+  "lookupReferences": {
+    "User_ID": { "table": "Users", "field": "ROWID" },
+    "Train_ID": { "table": "Trains", "field": "ROWID" },
+    "Station_ID": { "table": "Stations", "field": "ROWID" },
+    "Route_ID": { "table": "Train_Routes", "field": "ROWID" },
+    "Booking_ID": { "table": "Bookings", "field": "ROWID" },
+    "Parent_Module_ID": { "table": "Module_Master", "field": "ROWID" }
+  },
+  "endpoints": {
+    "auth": {
+      "register": {
+        "method": "POST",
+        "path": "/auth/register",
+        "auth": false,
+        "rateLimit": "10/hour",
+        "request": {
+          "fullName": "John Doe",
+          "email": "john.doe@example.com",
+          "password": "SecurePass123!",
+          "phoneNumber": "+91-9876543210"
+        },
+        "response": {
+          "status": "success",
+          "message": "Registration successful",
+          "data": {
+            "user": {
+              "id": "1001",
+              "fullName": "John Doe",
+              "email": "john.doe@example.com",
+              "phoneNumber": "+91-9876543210",
+              "role": "User",
+              "accountStatus": "Active"
+            },
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          }
+        }
+      },
+      "login": {
+        "method": "POST",
+        "path": "/auth/login",
+        "auth": false,
+        "rateLimit": "10/15min",
+        "request": {
+          "email": "john.doe@example.com",
+          "password": "SecurePass123!"
+        },
+        "response": {
+          "status": "success",
+          "message": "Login successful",
+          "data": {
+            "user": {
+              "id": "1001",
+              "fullName": "John Doe",
+              "email": "john.doe@example.com",
+              "role": "User",
+              "accountStatus": "Active"
+            },
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          }
+        }
+      },
+      "validate": {
+        "method": "GET",
+        "path": "/auth/validate",
+        "auth": true,
+        "response": {
+          "status": "success",
+          "data": {
+            "user": {
+              "id": "1001",
+              "fullName": "John Doe",
+              "email": "john.doe@example.com",
+              "role": "User"
+            }
+          }
+        }
+      },
+      "refresh": {
+        "method": "POST",
+        "path": "/auth/refresh",
+        "auth": false,
+        "request": {
+          "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "tokenType": "Bearer",
+            "expiresIn": 3600
+          }
+        }
+      },
+      "updateProfile": {
+        "method": "PUT",
+        "path": "/auth/profile",
+        "auth": true,
+        "request": {
+          "fullName": "John D. Doe",
+          "phoneNumber": "+91-9876543211",
+          "dateOfBirth": "1990-05-15",
+          "address": "456 New St, Delhi"
+        },
+        "response": {
+          "status": "success",
+          "message": "Profile updated successfully"
+        }
+      },
+      "changePassword": {
+        "method": "POST",
+        "path": "/auth/change-password",
+        "auth": true,
+        "request": {
+          "currentPassword": "SecurePass123!",
+          "newPassword": "NewSecurePass456!"
+        },
+        "response": {
+          "status": "success",
+          "message": "Password changed successfully",
+          "data": {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          }
+        }
+      },
+      "logout": {
+        "method": "POST",
+        "path": "/auth/logout",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "message": "Logged out successfully"
+        }
+      }
+    },
+    "users": {
+      "getAll": {
+        "method": "GET",
+        "path": "/users",
+        "auth": "admin",
+        "queryParams": ["limit", "offset"],
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "1001",
+              "Full_Name": "John Doe",
+              "Email": "john.doe@example.com",
+              "Phone_Number": "+91-9876543210",
+              "Role": "User",
+              "Account_Status": "Active"
+            }
+          ]
+        }
+      },
+      "getById": {
+        "method": "GET",
+        "path": "/users/{user_id}",
+        "auth": true,
+        "pathParams": {
+          "user_id": "1001"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "1001",
+            "Full_Name": "John Doe",
+            "Email": "john.doe@example.com",
+            "Role": "User"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/users",
+        "auth": "admin",
+        "request": {
+          "fullName": "New User",
+          "email": "newuser@example.com",
+          "password": "TempPass123!",
+          "phoneNumber": "+91-9876543212",
+          "role": "User"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "1003",
+            "Full_Name": "New User",
+            "Email": "newuser@example.com",
+            "Role": "User"
+          }
+        }
+      },
+      "update": {
+        "method": "PUT",
+        "path": "/users/{user_id}",
+        "auth": "admin",
+        "pathParams": {
+          "user_id": "1001"
+        },
+        "request": {
+          "fullName": "Updated Name",
+          "role": "Admin"
+        },
+        "response": {
+          "status": "success",
+          "message": "User updated"
+        }
+      },
+      "delete": {
+        "method": "DELETE",
+        "path": "/users/{user_id}",
+        "auth": "admin",
+        "pathParams": {
+          "user_id": "1003"
+        },
+        "response": {
+          "status": "success",
+          "message": "User deleted"
+        }
+      },
+      "updateStatus": {
+        "method": "PUT",
+        "path": "/users/{user_id}/status",
+        "auth": "admin",
+        "pathParams": {
+          "user_id": "1001"
+        },
+        "request": {
+          "status": "Blocked"
+        },
+        "allowedValues": ["Active", "Blocked", "Suspended"],
+        "response": {
+          "status": "success",
+          "message": "User status updated to Blocked"
+        }
+      }
+    },
+    "stations": {
+      "getAll": {
+        "method": "GET",
+        "path": "/stations",
+        "auth": false,
+        "cacheTTL": "24h",
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "101",
+              "Station_Code": "NDLS",
+              "Station_Name": "New Delhi",
+              "City": "New Delhi",
+              "State": "Delhi",
+              "Zone": "NR",
+              "Platform_Count": 16,
+              "Is_Active": "true"
+            },
+            {
+              "ROWID": "102",
+              "Station_Code": "CSTM",
+              "Station_Name": "Chhatrapati Shivaji Maharaj Terminus",
+              "City": "Mumbai",
+              "State": "Maharashtra",
+              "Zone": "CR",
+              "Platform_Count": 18,
+              "Is_Active": "true"
+            }
+          ]
+        }
+      },
+      "getById": {
+        "method": "GET",
+        "path": "/stations/{station_id}",
+        "auth": false,
+        "pathParams": {
+          "station_id": "101"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "101",
+            "Station_Code": "NDLS",
+            "Station_Name": "New Delhi",
+            "City": "New Delhi"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/stations",
+        "auth": "admin",
+        "request": {
+          "stationCode": "MAS",
+          "stationName": "Chennai Central",
+          "city": "Chennai",
+          "state": "Tamil Nadu",
+          "zone": "SR",
+          "platformCount": 17
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "104",
+            "Station_Code": "MAS",
+            "Station_Name": "Chennai Central"
+          }
+        }
+      },
+      "update": {
+        "method": "PUT",
+        "path": "/stations/{station_id}",
+        "auth": "admin",
+        "pathParams": {
+          "station_id": "104"
+        },
+        "request": {
+          "stationName": "Chennai Central Railway Station",
+          "platformCount": 18
+        },
+        "response": {
+          "status": "success",
+          "message": "Station updated"
+        }
+      },
+      "delete": {
+        "method": "DELETE",
+        "path": "/stations/{station_id}",
+        "auth": "admin",
+        "pathParams": {
+          "station_id": "104"
+        },
+        "response": {
+          "status": "success",
+          "message": "Station deleted"
+        }
+      }
+    },
+    "trains": {
+      "getAll": {
+        "method": "GET",
+        "path": "/trains",
+        "auth": false,
+        "queryParams": ["limit", "offset", "active", "source", "destination"],
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "201",
+              "Train_Number": "12301",
+              "Train_Name": "Howrah Rajdhani Express",
+              "Train_Type": "Rajdhani",
+              "From_Station": "NDLS",
+              "To_Station": "HWH",
+              "Departure_Time": "16:55",
+              "Arrival_Time": "09:55",
+              "Duration": "17h 00m",
+              "Is_Active": "true"
+            }
+          ]
+        }
+      },
+      "getById": {
+        "method": "GET",
+        "path": "/trains/{train_id}",
+        "auth": false,
+        "pathParams": {
+          "train_id": "201"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "201",
+            "Train_Number": "12301",
+            "Train_Name": "Howrah Rajdhani Express"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/trains",
+        "auth": "admin",
+        "request": {
+          "trainNumber": "12425",
+          "trainName": "New Delhi Rajdhani Express",
+          "trainType": "Rajdhani",
+          "fromStation": "NDLS",
+          "toStation": "JAT",
+          "departureTime": "20:20",
+          "arrivalTime": "05:00",
+          "duration": "8h 40m",
+          "daysOfOperation": "Daily",
+          "totalSeats3A": 256,
+          "totalSeats2A": 64,
+          "totalSeats1A": 24
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "203",
+            "Train_Number": "12425"
+          }
+        }
+      },
+      "update": {
+        "method": "PUT",
+        "path": "/trains/{train_id}",
+        "auth": "admin",
+        "pathParams": {
+          "train_id": "201"
+        },
+        "request": {
+          "trainName": "Updated Train Name",
+          "isActive": false
+        },
+        "response": {
+          "status": "success",
+          "message": "Train updated"
+        }
+      },
+      "delete": {
+        "method": "DELETE",
+        "path": "/trains/{train_id}",
+        "auth": "admin",
+        "pathParams": {
+          "train_id": "203"
+        },
+        "response": {
+          "status": "success",
+          "message": "Train deleted"
+        }
+      }
+    },
+    "trainRoutes": {
+      "getAll": {
+        "method": "GET",
+        "path": "/train-routes",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "301",
+              "Train_ID": "201",
+              "Route_Name": "Delhi-Howrah Route",
+              "Total_Distance": 1447
+            }
+          ]
+        }
+      },
+      "getById": {
+        "method": "GET",
+        "path": "/train-routes/{route_id}",
+        "auth": false,
+        "pathParams": {
+          "route_id": "301"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "301",
+            "Train_ID": "201",
+            "Route_Name": "Delhi-Howrah Route",
+            "stops": [
+              {
+                "ROWID": "401",
+                "Station_ID": "101",
+                "Stop_Sequence": 1,
+                "Departure_Time": "16:55"
+              }
+            ]
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/train-routes",
+        "auth": "admin",
+        "request": {
+          "trainId": "202",
+          "routeName": "Delhi-Mumbai Route",
+          "totalDistance": 1384
+        },
+        "lookups": {
+          "trainId": "Trains.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "302",
+            "Train_ID": "202"
+          }
+        }
+      },
+      "addStop": {
+        "method": "POST",
+        "path": "/train-routes/{route_id}/stops",
+        "auth": "admin",
+        "pathParams": {
+          "route_id": "301"
+        },
+        "request": {
+          "stationId": "105",
+          "stopSequence": 2,
+          "arrivalTime": "19:02",
+          "departureTime": "19:05",
+          "distanceFromOrigin": 220,
+          "haltDuration": 3,
+          "platform": "1"
+        },
+        "lookups": {
+          "stationId": "Stations.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "402"
+          }
+        }
+      }
+    },
+    "bookings": {
+      "getAll": {
+        "method": "GET",
+        "path": "/bookings",
+        "auth": "admin",
+        "queryParams": ["limit", "offset"],
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "501",
+              "PNR": "PNR8A4BC2D1",
+              "User_ID": "1001",
+              "Train_ID": "201",
+              "Journey_Date": "2026-04-15",
+              "Travel_Class": "3A",
+              "Booking_Status": "Confirmed",
+              "Total_Fare": 2450
+            }
+          ]
+        }
+      },
+      "getById": {
+        "method": "GET",
+        "path": "/bookings/{booking_id}",
+        "auth": true,
+        "pathParams": {
+          "booking_id": "501"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "501",
+            "PNR": "PNR8A4BC2D1",
+            "passengers": [
+              {
+                "Passenger_Name": "John Doe",
+                "Age": 35,
+                "Seat_Status": "CNF",
+                "Coach": "B1",
+                "Seat_Number": "45"
+              }
+            ]
+          }
+        }
+      },
+      "getByPNR": {
+        "method": "GET",
+        "path": "/bookings/pnr/{pnr}",
+        "auth": false,
+        "pathParams": {
+          "pnr": "PNR8A4BC2D1"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "PNR": "PNR8A4BC2D1",
+            "Booking_Status": "Confirmed"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/bookings",
+        "auth": true,
+        "request": {
+          "trainId": "201",
+          "journeyDate": "2026-04-15",
+          "travelClass": "3A",
+          "quota": "GN",
+          "fromStation": "NDLS",
+          "toStation": "HWH",
+          "totalFare": 2450,
+          "passengers": [
+            {
+              "name": "John Doe",
+              "age": 35,
+              "gender": "Male",
+              "berthPreference": "Lower"
+            }
+          ]
+        },
+        "lookups": {
+          "trainId": "Trains.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "booking": {
+              "ROWID": "501",
+              "PNR": "PNR8A4BC2D1"
+            },
+            "pnr": "PNR8A4BC2D1"
+          }
+        }
+      },
+      "pay": {
+        "method": "POST",
+        "path": "/bookings/{booking_id}/pay",
+        "auth": true,
+        "pathParams": {
+          "booking_id": "501"
+        },
+        "response": {
+          "status": "success",
+          "message": "Payment recorded"
+        }
+      },
+      "cancel": {
+        "method": "POST",
+        "path": "/bookings/{booking_id}/cancel",
+        "auth": true,
+        "pathParams": {
+          "booking_id": "501"
+        },
+        "request": {
+          "reason": "Change of plans"
+        },
+        "response": {
+          "status": "success",
+          "message": "Booking cancelled"
+        }
+      },
+      "getUserBookings": {
+        "method": "GET",
+        "path": "/users/{user_id}/bookings",
+        "auth": true,
+        "pathParams": {
+          "user_id": "1001"
+        },
+        "lookups": {
+          "user_id": "Users.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      }
+    },
+    "fares": {
+      "getAll": {
+        "method": "GET",
+        "path": "/fares",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "701",
+              "Train_Type": "Rajdhani",
+              "Travel_Class": "3A",
+              "Base_Rate_Per_Km": 1.70
+            }
+          ]
+        }
+      },
+      "calculate": {
+        "method": "POST",
+        "path": "/fares/calculate",
+        "auth": false,
+        "request": {
+          "distance": 1447,
+          "travelClass": "3A",
+          "isTatkal": false,
+          "isSuperfast": true,
+          "concession": null
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "baseFare": 2459.90,
+            "reservationCharge": 40,
+            "superfastSurcharge": 45,
+            "tatkalCharge": 0,
+            "subtotal": 2544.90,
+            "gst": 127.25,
+            "totalFare": 2672.15
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/fares",
+        "auth": "admin",
+        "request": {
+          "trainType": "Shatabdi",
+          "travelClass": "CC",
+          "baseRatePerKm": 1.25,
+          "minFare": 130,
+          "maxFare": 2500
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "702"
+          }
+        }
+      }
+    },
+    "inventory": {
+      "getAll": {
+        "method": "GET",
+        "path": "/inventory",
+        "auth": false,
+        "queryParams": ["trainId", "journeyDate"],
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "ROWID": "801",
+              "Train_ID": "201",
+              "Journey_Date": "2026-04-15",
+              "Available_Seats_3A": 256,
+              "Available_Seats_2A": 64
+            }
+          ]
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/inventory",
+        "auth": "admin",
+        "request": {
+          "trainId": "201",
+          "journeyDate": "2026-04-20",
+          "availableSeats3A": 384,
+          "availableSeats2A": 92,
+          "availableSeats1A": 36
+        },
+        "lookups": {
+          "trainId": "Trains.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "802"
+          }
+        }
+      }
+    },
+    "quotas": {
+      "getAll": {
+        "method": "GET",
+        "path": "/quotas",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      },
+      "getTypes": {
+        "method": "GET",
+        "path": "/quotas/types",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": {
+            "GN": "General Quota",
+            "TK": "Tatkal Quota",
+            "PT": "Premium Tatkal",
+            "LD": "Ladies Quota"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/quotas",
+        "auth": "admin",
+        "request": {
+          "trainId": "201",
+          "quotaType": "GN",
+          "travelClass": "3A",
+          "seatsAllocated": 300
+        },
+        "lookups": {
+          "trainId": "Trains.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "901"
+          }
+        }
+      }
+    },
+    "announcements": {
+      "getAll": {
+        "method": "GET",
+        "path": "/announcements",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      },
+      "getActive": {
+        "method": "GET",
+        "path": "/announcements/active",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/announcements",
+        "auth": "admin",
+        "request": {
+          "title": "Maintenance Notice",
+          "message": "Online booking will be unavailable from 2 AM to 4 AM",
+          "type": "info",
+          "priority": "normal"
+        },
+        "allowedTypes": ["info", "warning", "error", "success"],
+        "allowedPriorities": ["low", "normal", "high"],
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "1001"
+          }
+        }
+      }
+    },
+    "settings": {
+      "getAll": {
+        "method": "GET",
+        "path": "/settings",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      },
+      "getByKey": {
+        "method": "GET",
+        "path": "/settings/key/{key}",
+        "auth": false,
+        "pathParams": {
+          "key": "booking_advance_days"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "Setting_Key": "booking_advance_days",
+            "Setting_Value": "120"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/settings",
+        "auth": "admin",
+        "request": {
+          "key": "max_passengers_per_booking",
+          "value": "6",
+          "description": "Maximum passengers allowed per booking",
+          "category": "booking"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "1101"
+          }
+        }
+      }
+    },
+    "adminLogs": {
+      "getAll": {
+        "method": "GET",
+        "path": "/admin/logs",
+        "auth": "admin",
+        "queryParams": ["limit", "offset", "actionType", "userEmail"],
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/admin/logs",
+        "auth": "admin",
+        "request": {
+          "actionType": "UPDATE",
+          "actionDetails": "Updated fare rules",
+          "entityType": "Fare",
+          "entityId": "701"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "1201"
+          }
+        }
+      }
+    },
+    "adminUsers": {
+      "getAll": {
+        "method": "GET",
+        "path": "/admin/users",
+        "auth": "admin",
+        "response": {
+          "status": "success",
+          "data": []
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/admin/users",
+        "auth": "admin",
+        "request": {
+          "fullName": "New Admin",
+          "email": "newadmin@catalyst-cs2.onslate.in",
+          "password": "AdminPass123!"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "ROWID": "1002",
+            "Role": "Admin"
+          }
+        }
+      },
+      "promote": {
+        "method": "POST",
+        "path": "/admin/users/{user_id}/promote",
+        "auth": "admin",
+        "pathParams": {
+          "user_id": "1001"
+        },
+        "response": {
+          "status": "success",
+          "message": "User promoted to admin"
+        }
+      },
+      "demote": {
+        "method": "POST",
+        "path": "/admin/users/{user_id}/demote",
+        "auth": "admin",
+        "pathParams": {
+          "user_id": "1002"
+        },
+        "response": {
+          "status": "success",
+          "message": "Admin demoted to user"
+        }
+      }
+    },
+    "moduleMaster": {
+      "getAll": {
+        "method": "GET",
+        "path": "/modules",
+        "auth": false,
+        "queryParams": ["limit", "offset", "active", "category", "search", "orderBy"],
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "id": "1401",
+              "moduleName": "Dashboard",
+              "moduleCode": "DASHBOARD",
+              "description": "Main analytics dashboard",
+              "category": "Admin",
+              "displayOrder": 1,
+              "isActive": true,
+              "icon": "dashboard",
+              "route": "/admin/dashboard",
+              "permissions": "view_dashboard"
+            }
+          ],
+          "meta": {
+            "total": 1,
+            "limit": 100,
+            "offset": 0,
+            "cached": false
+          }
+        }
+      },
+      "getById": {
+        "method": "GET",
+        "path": "/modules/{module_id}",
+        "auth": false,
+        "pathParams": {
+          "module_id": "1401"
+        },
+        "response": {
+          "status": "success",
+          "data": {
+            "id": "1401",
+            "moduleName": "Dashboard",
+            "moduleCode": "DASHBOARD"
+          }
+        }
+      },
+      "create": {
+        "method": "POST",
+        "path": "/modules",
+        "auth": "admin",
+        "rateLimit": "50/hour",
+        "request": {
+          "moduleName": "Train Management",
+          "moduleCode": "TRAIN_MGMT",
+          "description": "Manage trains and schedules",
+          "category": "Operations",
+          "displayOrder": 3,
+          "isActive": true,
+          "icon": "train",
+          "route": "/admin/trains",
+          "permissions": "manage_trains",
+          "parentModuleId": ""
+        },
+        "lookups": {
+          "parentModuleId": "Module_Master.ROWID"
+        },
+        "response": {
+          "status": "success",
+          "message": "Module created successfully",
+          "data": {
+            "id": "1403",
+            "moduleName": "Train Management",
+            "moduleCode": "TRAIN_MGMT"
+          }
+        }
+      },
+      "update": {
+        "method": "PUT",
+        "path": "/modules/{module_id}",
+        "auth": "admin",
+        "pathParams": {
+          "module_id": "1401"
+        },
+        "request": {
+          "description": "Updated description",
+          "displayOrder": 5,
+          "isActive": false
+        },
+        "response": {
+          "status": "success",
+          "message": "Module updated successfully"
+        }
+      },
+      "delete": {
+        "method": "DELETE",
+        "path": "/modules/{module_id}",
+        "auth": "admin",
+        "pathParams": {
+          "module_id": "1403"
+        },
+        "response": {
+          "status": "success",
+          "message": "Module deleted successfully"
+        }
+      },
+      "toggleStatus": {
+        "method": "POST",
+        "path": "/modules/{module_id}/toggle-status",
+        "auth": "admin",
+        "pathParams": {
+          "module_id": "1401"
+        },
+        "response": {
+          "status": "success",
+          "message": "Module deactivated successfully",
+          "data": {
+            "id": "1401",
+            "isActive": false
+          }
+        }
+      },
+      "getHierarchy": {
+        "method": "GET",
+        "path": "/modules/hierarchy",
+        "auth": false,
+        "response": {
+          "status": "success",
+          "data": [
+            {
+              "id": "1401",
+              "moduleName": "Administration",
+              "children": [
+                {
+                  "id": "1402",
+                  "moduleName": "User Management",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "errorResponses": {
+    "400": {
+      "status": "error",
+      "message": "Bad Request / Validation Error"
+    },
+    "401": {
+      "status": "error",
+      "message": "Invalid or expired token"
+    },
+    "403": {
+      "status": "error",
+      "message": "Admin access required"
+    },
+    "404": {
+      "status": "error",
+      "message": "Resource not found"
+    },
+    "409": {
+      "status": "error",
+      "message": "Resource already exists"
+    },
+    "429": {
+      "status": "error",
+      "message": "Too many requests. Please try again later."
+    },
+    "500": {
+      "status": "error",
+      "message": "Internal server error"
+    }
+  },
+  "testData": {
+    "users": {
+      "regularUser": { "ROWID": "1001", "email": "john.doe@example.com" },
+      "adminUser": { "ROWID": "1002", "email": "admin@railway.com" }
+    },
+    "stations": {
+      "delhi": { "ROWID": "101", "code": "NDLS" },
+      "mumbai": { "ROWID": "102", "code": "CSTM" },
+      "howrah": { "ROWID": "103", "code": "HWH" }
+    },
+    "trains": {
+      "rajdhani": { "ROWID": "201", "number": "12301" },
+      "mumbaiRajdhani": { "ROWID": "202", "number": "12951" }
+    },
+    "routes": {
+      "delhiHowrah": { "ROWID": "301" }
+    },
+    "modules": {
+      "dashboard": { "ROWID": "1401", "code": "DASHBOARD" }
+    }
+  }
+}

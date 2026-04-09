@@ -1,0 +1,469 @@
+{
+  "timestamp": "2026-03-27T13:59:30.520588",
+  "baseUrl": "https://smart-railway-app-60066581545.development.catalystserverless.in/server/smart_railway_app_function",
+  "modules": {
+    "SEED": {
+      "tests": [
+        {
+          "name": "Create Test User (agent@agent.com)",
+          "method": "POST",
+          "endpoint": "/seed/user",
+          "status": 500,
+          "time": "2270ms",
+          "result": "FAIL",
+          "response": {
+            "error": "{'code': 'INVALID_INPUT', 'message': 'Invalid input value for column name', 'status_code': 400}",
+            "message": "Failed to create user",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Create Admin User",
+          "method": "POST",
+          "endpoint": "/seed/admin",
+          "status": 500,
+          "time": "1439ms",
+          "result": "FAIL",
+          "response": {
+            "error": "{'code': 'INVALID_INPUT', 'message': 'Invalid input value for column name', 'status_code': 400}",
+            "message": "Failed to create admin",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Check Seed Status",
+          "method": "GET",
+          "endpoint": "/seed/status",
+          "status": 200,
+          "time": "606ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 2
+    },
+    "AUTH": {
+      "tests": [
+        {
+          "name": "Login - Valid Credentials",
+          "method": "POST",
+          "endpoint": "/auth/login",
+          "status": 400,
+          "time": "1235ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Email and password are required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Login - Invalid Credentials",
+          "method": "POST",
+          "endpoint": "/auth/login",
+          "status": 400,
+          "time": "812ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Email and password are required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Validate Session",
+          "method": "GET",
+          "endpoint": "/auth/validate",
+          "status": 401,
+          "time": "501ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "method": "POST",
+          "endpoint": "/auth/refresh",
+          "status": 400,
+          "time": "522ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Refresh token is required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "method": "PUT",
+          "endpoint": "/auth/profile",
+          "status": 401,
+          "time": "408ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Logout",
+          "method": "POST",
+          "endpoint": "/auth/logout",
+          "status": 200,
+          "time": "818ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 5
+    },
+    "USERS": {
+      "tests": [
+        {
+          "name": "Get All Users (Admin)",
+          "method": "GET",
+          "endpoint": "/users",
+          "status": 401,
+          "time": "509ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "method": "GET",
+          "endpoint": "/users/None",
+          "status": 401,
+          "time": "512ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Get Users Without Auth",
+          "method": "GET",
+          "endpoint": "/users",
+          "status": 401,
+          "time": "819ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 2
+    },
+    "STATIONS": {
+      "tests": [
+        {
+          "name": "Get All Stations",
+          "method": "GET",
+          "endpoint": "/stations",
+          "status": 200,
+          "time": "511ms",
+          "result": "PASS",
+          "response": null
+        },
+        {
+          "name": "Create Station (Admin)",
+          "method": "POST",
+          "endpoint": "/stations",
+          "status": 401,
+          "time": "615ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Search Stations",
+          "method": "GET",
+          "endpoint": "/stations?search=test",
+          "status": 200,
+          "time": "612ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 2,
+      "failed": 1
+    },
+    "TRAINS": {
+      "tests": [
+        {
+          "name": "Get All Trains",
+          "method": "GET",
+          "endpoint": "/trains",
+          "status": 500,
+          "time": "613ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Failed to fetch trains",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Create Train (Admin)",
+          "method": "POST",
+          "endpoint": "/trains",
+          "status": 401,
+          "time": "315ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Search Trains",
+          "method": "GET",
+          "endpoint": "/trains?search=express",
+          "status": 500,
+          "time": "401ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Failed to fetch trains",
+            "status": "error"
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 3
+    },
+    "FARES": {
+      "tests": [
+        {
+          "name": "Get All Fares",
+          "method": "GET",
+          "endpoint": "/fares",
+          "status": 200,
+          "time": "511ms",
+          "result": "PASS",
+          "response": null
+        },
+        {
+          "name": "Calculate Fare",
+          "method": "POST",
+          "endpoint": "/fares/calculate",
+          "status": 400,
+          "time": "613ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 2,
+      "failed": 0
+    },
+    "BOOKINGS": {
+      "tests": [
+        {
+          "name": "Get User Bookings",
+          "method": "GET",
+          "endpoint": "/bookings",
+          "status": 401,
+          "time": "580ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Get Booking by PNR",
+          "method": "GET",
+          "endpoint": "/bookings/pnr/TEST123456",
+          "status": 404,
+          "time": "545ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 1
+    },
+    "INVENTORY": {
+      "tests": [
+        {
+          "name": "Check Availability",
+          "method": "GET",
+          "endpoint": "/inventory/availability?trainId=1&date=2026-04-01&class=3A",
+          "status": 404,
+          "time": "615ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 0
+    },
+    "QUOTAS": {
+      "tests": [
+        {
+          "name": "Get All Quotas",
+          "method": "GET",
+          "endpoint": "/quotas",
+          "status": 200,
+          "time": "408ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 0
+    },
+    "ANNOUNCEMENTS": {
+      "tests": [
+        {
+          "name": "Get Active Announcements",
+          "method": "GET",
+          "endpoint": "/announcements",
+          "status": 200,
+          "time": "612ms",
+          "result": "PASS",
+          "response": null
+        },
+        {
+          "name": "Create Announcement (Admin)",
+          "method": "POST",
+          "endpoint": "/announcements",
+          "status": 401,
+          "time": "514ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        }
+      ],
+      "passed": 1,
+      "failed": 1
+    },
+    "SETTINGS": {
+      "tests": [
+        {
+          "name": "Get All Settings",
+          "method": "GET",
+          "endpoint": "/settings",
+          "status": 200,
+          "time": "623ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 0
+    },
+    "MODULE_MASTER": {
+      "tests": [
+        {
+          "name": "Get All Modules",
+          "method": "GET",
+          "endpoint": "/modules",
+          "status": 401,
+          "time": "501ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Create Module (Admin)",
+          "method": "POST",
+          "endpoint": "/modules",
+          "status": 401,
+          "time": "511ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Get Module by ID",
+          "method": "GET",
+          "endpoint": "/modules/None",
+          "status": 401,
+          "time": "715ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        },
+        {
+          "name": "Update Module (Admin)",
+          "method": "PUT",
+          "endpoint": "/modules/None",
+          "status": 401,
+          "time": "612ms",
+          "result": "FAIL",
+          "response": {
+            "message": "Authentication required",
+            "status": "error"
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 4
+    },
+    "ADMIN_LOGS": {
+      "tests": [
+        {
+          "name": "Get Admin Logs",
+          "method": "GET",
+          "endpoint": "/admin/logs",
+          "status": 401,
+          "time": "717ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 1,
+      "failed": 0
+    },
+    "SECURITY": {
+      "tests": [
+        {
+          "name": "SQL Injection - Login",
+          "method": "POST",
+          "endpoint": "/auth/login",
+          "status": 400,
+          "time": "510ms",
+          "result": "PASS",
+          "response": null
+        },
+        {
+          "name": "XSS Attack - Register",
+          "method": "POST",
+          "endpoint": "/auth/register",
+          "status": 400,
+          "time": "512ms",
+          "result": "PASS",
+          "response": null
+        },
+        {
+          "name": "Unauthorized Access - Admin Endpoint",
+          "method": "GET",
+          "endpoint": "/users",
+          "status": 401,
+          "time": "612ms",
+          "result": "PASS",
+          "response": null
+        }
+      ],
+      "passed": 3,
+      "failed": 0
+    }
+  },
+  "summary": {
+    "total": 35,
+    "passed": 16,
+    "failed": 19
+  }
+}

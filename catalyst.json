@@ -8,6 +8,7 @@
   },
   "client": {
     "source": "railway-app",
-    "plugin": "zcatalyst-cli-plugin-react"
+    "plugin": "zcatalyst-cli-plugin-react",
+    "spa": true
   }
 }
