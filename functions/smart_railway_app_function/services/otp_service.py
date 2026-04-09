@@ -32,10 +32,40 @@ OTP_LENGTH = 6
 OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', '15'))
 OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '3'))
 OTP_RESEND_COOLDOWN_SECONDS = int(os.getenv('OTP_RESEND_COOLDOWN_SECONDS', '60'))
+OTP_MAX_RESEND_ATTEMPTS = int(os.getenv('OTP_MAX_RESEND_ATTEMPTS', '3'))  # Max times user can resend OTP
 
 # Email configuration
 FROM_EMAIL = os.getenv('CATALYST_FROM_EMAIL', 'noreply@smartrailway.com')
 APP_NAME = os.getenv('APP_NAME', 'Smart Railway')
+
+# In-memory store for tracking resend attempts per email+purpose
+# Format: {f"{email}:{purpose}": {"count": int, "first_request_at": datetime}}
+_resend_attempt_tracker = {}
+
+
+def _parse_db_datetime(value: Optional[str]) -> Optional[datetime]:
+    """Parse DB datetime strings into timezone-aware UTC datetimes.
+
+    Supports both:
+    - "YYYY-MM-DD HH:MM:SS" (stored by this service)
+    - ISO8601 strings (optionally with trailing 'Z')
+    """
+    if not value:
+        return None
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    try:
+        dt = datetime.fromisoformat(s.replace('Z', '+00:00'))
+    except Exception:
+        return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt.astimezone(timezone.utc)
 
 
 def generate_otp() -> str:
@@ -144,7 +174,7 @@ def verify_otp(email: str, otp: str, purpose: str = 'registration') -> Tuple[boo
             FROM {TABLES.get('otp_tokens', 'OTP_Tokens')}
             WHERE User_Email = '{email_safe}'
             AND Purpose = '{purpose}'
-            AND Is_Used = false
+            AND Is_Used = 'false'
             ORDER BY Created_At DESC
             LIMIT 1
         """
@@ -166,12 +196,9 @@ def verify_otp(email: str, otp: str, purpose: str = 'registration') -> Tuple[boo
         rowid = record.get('ROWID')
         
         # Check if expired
-        try:
-            expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
-            if datetime.now(timezone.utc) > expires_at:
-                return False, "OTP has expired. Please request a new one."
-        except Exception:
-            pass
+        expires_at = _parse_db_datetime(expires_at_str)
+        if expires_at and datetime.now(timezone.utc) > expires_at:
+            return False, "OTP has expired. Please request a new one."
         
         # Check max attempts
         if attempts >= OTP_MAX_ATTEMPTS:
@@ -193,8 +220,11 @@ def verify_otp(email: str, otp: str, purpose: str = 'registration') -> Tuple[boo
         cloudscale_repo.update_record(
             TABLES.get('otp_tokens', 'OTP_Tokens'),
             str(rowid),
-            {'Is_Used': True}  # Boolean, not string
+            {'Is_Used': 'true'}
         )
+        
+        # Reset resend tracker on successful verification
+        _reset_resend_tracker(email, purpose)
         
         logger.info(f"OTP verified successfully for {email}")
         return True, "OTP verified successfully"
@@ -239,18 +269,17 @@ def send_otp_email(email: str, otp: str, purpose: str = 'registration') -> Dict:
             content = _build_generic_otp_email(otp)
         
         # Build email object for Zoho Catalyst
-        # Catalyst expects 'content' field for HTML emails
+        # SDK supports: from_email, to_email, subject, content, html_mode (bool)
         mail_obj = {
             'from_email': FROM_EMAIL,
-            'to_email': [email],  # Must be a list
+            'to_email': [email],
             'subject': subject,
-            'content': content,  # HTML email content
-            'is_html': True
+            'content': content,
+            'html_mode': True,  # Enable HTML rendering
         }
         
         # Send the email
-        logger.debug(f"Sending OTP email to {email} from {FROM_EMAIL}")
-        logger.debug(f"Email content preview: {content[:200]}...")
+        logger.info(f"Sending OTP email to {email} from {FROM_EMAIL}")
         response = mail_service.send_mail(mail_obj)
         logger.info(f"OTP email sent to {email}, response: {response}")
         return {'success': True}
@@ -375,6 +404,75 @@ def _build_generic_otp_email(otp: str) -> str:
 </html>"""
 
 
+def _track_resend_attempt(email: str, purpose: str) -> None:
+    """
+    Track OTP resend attempt for rate limiting.
+    
+    Args:
+        email: User's email address
+        purpose: OTP purpose ('registration' or 'password_reset')
+    """
+    key = f"{email.lower().strip()}:{purpose}"
+    now = datetime.now(timezone.utc)
+    
+    if key in _resend_attempt_tracker:
+        _resend_attempt_tracker[key]['count'] += 1
+        _resend_attempt_tracker[key]['last_attempt_at'] = now
+    else:
+        _resend_attempt_tracker[key] = {
+            'count': 1,
+            'first_attempt_at': now,
+            'last_attempt_at': now
+        }
+
+
+def _check_resend_limit(email: str, purpose: str) -> Tuple[bool, int]:
+    """
+    Check if user has exceeded resend limit.
+    
+    Args:
+        email: User's email address
+        purpose: OTP purpose ('registration' or 'password_reset')
+    
+    Returns:
+        Tuple of (can_resend: bool, attempts_remaining: int)
+    """
+    key = f"{email.lower().strip()}:{purpose}"
+    
+    if key not in _resend_attempt_tracker:
+        return True, OTP_MAX_RESEND_ATTEMPTS
+    
+    tracker = _resend_attempt_tracker[key]
+    first_attempt = tracker['first_attempt_at']
+    count = tracker['count']
+    
+    # Reset counter if more than 1 hour has passed since first attempt
+    elapsed_hours = (datetime.now(timezone.utc) - first_attempt).total_seconds() / 3600
+    if elapsed_hours > 1:
+        # Reset the tracker
+        del _resend_attempt_tracker[key]
+        return True, OTP_MAX_RESEND_ATTEMPTS
+    
+    # Check if limit exceeded
+    if count >= OTP_MAX_RESEND_ATTEMPTS:
+        return False, 0
+    
+    return True, OTP_MAX_RESEND_ATTEMPTS - count
+
+
+def _reset_resend_tracker(email: str, purpose: str) -> None:
+    """
+    Reset resend tracker when OTP is successfully verified.
+    
+    Args:
+        email: User's email address
+        purpose: OTP purpose ('registration' or 'password_reset')
+    """
+    key = f"{email.lower().strip()}:{purpose}"
+    if key in _resend_attempt_tracker:
+        del _resend_attempt_tracker[key]
+
+
 def can_resend_otp(email: str, purpose: str = 'registration') -> Tuple[bool, int]:
     """
     Check if user can request a new OTP (cooldown check).
@@ -408,13 +506,16 @@ def can_resend_otp(email: str, purpose: str = 'registration') -> Tuple[bool, int
             return True, 0
         
         try:
-            created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+            created_at = _parse_db_datetime(created_at_str)
+            if not created_at:
+                return True, 0
+
             elapsed = (datetime.now(timezone.utc) - created_at).total_seconds()
-            
+
             if elapsed < OTP_RESEND_COOLDOWN_SECONDS:
                 remaining = int(OTP_RESEND_COOLDOWN_SECONDS - elapsed)
                 return False, remaining
-            
+
             return True, 0
         except Exception:
             return True, 0
@@ -424,16 +525,28 @@ def can_resend_otp(email: str, purpose: str = 'registration') -> Tuple[bool, int
         return True, 0
 
 
-def send_registration_otp(email: str) -> Dict:
+def send_registration_otp(email: str, is_resend: bool = False) -> Dict:
     """
     Complete flow to generate and send registration OTP.
     
     Args:
         email: User's email address
+        is_resend: Whether this is a resend request (for tracking)
     
     Returns:
         Result dict with success status and message
     """
+    # Check resend limit (only for resend requests)
+    if is_resend:
+        can_resend_limit, remaining_attempts = _check_resend_limit(email, 'registration')
+        if not can_resend_limit:
+            return {
+                'success': False,
+                'error': f'Maximum resend limit ({OTP_MAX_RESEND_ATTEMPTS}) reached. Please try again after 1 hour.',
+                'limit_exceeded': True,
+                'remaining_attempts': 0
+            }
+    
     # Check cooldown
     can_send, remaining = can_resend_otp(email, 'registration')
     if not can_send:
@@ -442,6 +555,10 @@ def send_registration_otp(email: str) -> Dict:
             'error': f'Please wait {remaining} seconds before requesting another OTP',
             'cooldown': remaining
         }
+    
+    # Track resend attempt
+    if is_resend:
+        _track_resend_attempt(email, 'registration')
     
     # Generate OTP
     otp = generate_otp()
@@ -458,23 +575,39 @@ def send_registration_otp(email: str) -> Dict:
     if not email_result.get('success'):
         return {'success': False, 'error': 'Failed to send verification email'}
     
+    # Get remaining attempts for response
+    _, remaining_attempts = _check_resend_limit(email, 'registration')
+    
     return {
         'success': True,
         'message': 'Verification code sent to your email',
-        'expiresInMinutes': OTP_EXPIRY_MINUTES
+        'expiresInMinutes': OTP_EXPIRY_MINUTES,
+        'remaining_resend_attempts': remaining_attempts - 1 if is_resend else remaining_attempts
     }
 
 
-def send_password_reset_otp(email: str) -> Dict:
+def send_password_reset_otp(email: str, is_resend: bool = False) -> Dict:
     """
     Send OTP for password reset.
     
     Args:
         email: User's email address
+        is_resend: Whether this is a resend request (for tracking)
     
     Returns:
         Result dict with success status and message
     """
+    # Check resend limit (only for resend requests)
+    if is_resend:
+        can_resend_limit, remaining_attempts = _check_resend_limit(email, 'password_reset')
+        if not can_resend_limit:
+            return {
+                'success': False,
+                'error': f'Maximum resend limit ({OTP_MAX_RESEND_ATTEMPTS}) reached. Please try again after 1 hour.',
+                'limit_exceeded': True,
+                'remaining_attempts': 0
+            }
+    
     # Check cooldown
     can_send, remaining = can_resend_otp(email, 'password_reset')
     if not can_send:
@@ -483,6 +616,10 @@ def send_password_reset_otp(email: str) -> Dict:
             'error': f'Please wait {remaining} seconds before requesting another code',
             'cooldown': remaining
         }
+    
+    # Track resend attempt
+    if is_resend:
+        _track_resend_attempt(email, 'password_reset')
     
     # Generate OTP
     otp = generate_otp()
@@ -499,10 +636,14 @@ def send_password_reset_otp(email: str) -> Dict:
     if not email_result.get('success'):
         return {'success': False, 'error': 'Failed to send verification email'}
     
+    # Get remaining attempts for response
+    _, remaining_attempts = _check_resend_limit(email, 'password_reset')
+    
     return {
         'success': True,
         'message': 'Password reset code sent to your email',
-        'expiresInMinutes': OTP_EXPIRY_MINUTES
+        'expiresInMinutes': OTP_EXPIRY_MINUTES,
+        'remaining_resend_attempts': remaining_attempts - 1 if is_resend else remaining_attempts
     }
 
 
@@ -517,7 +658,13 @@ def verify_password_reset_otp(email: str, otp: str) -> Tuple[bool, str]:
     Returns:
         Tuple of (success, message)
     """
-    return verify_otp(email, otp, 'password_reset')
+    result = verify_otp(email, otp, 'password_reset')
+    
+    # Reset resend tracker on successful verification
+    if result[0]:  # If verification successful
+        _reset_resend_tracker(email, 'password_reset')
+    
+    return result
 
 
 def resend_password_reset_otp(email: str) -> Dict:
@@ -530,4 +677,4 @@ def resend_password_reset_otp(email: str) -> Dict:
     Returns:
         Result dict with success status
     """
-    return send_password_reset_otp(email)
+    return send_password_reset_otp(email, is_resend=True)

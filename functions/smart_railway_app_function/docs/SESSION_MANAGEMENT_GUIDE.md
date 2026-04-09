@@ -897,15 +897,34 @@ Session_Audit_Log:
 {
     "ROWID": "111222",
     "Event_Type": "SESSION_CREATED",
-    "Session_ID": "abc...xyz",  # Last 8 chars for privacy
-    "User_ID": "555",
+    "Session_ID": None,  # FK to Sessions.ROWID (omitted if not available)
+    "User_ID": 555,      # FK to Users/Employees.ROWID (integer or omitted)
     "User_Email": "user@example.com",
     "IP_Address": "192.168.1.100",
     "Event_Timestamp": "2026-03-31T12:00:00Z",
-    "Details": '{"user_agent": "Chrome/120", "device": "Desktop"}',
+    "Details": '{"session_ref": "abc...xyz", "user_agent": "Chrome/120"}',
     "Severity": "INFO"
 }
 ```
+
+**Important Notes:**
+
+⚠️ **Foreign Key Fields (Session_ID, User_ID):**
+- These are FOREIGN KEYS to Sessions/Users/Employees tables
+- Must be valid ROWID (positive integer) OR completely omitted
+- **CANNOT** be: empty string, zero, negative, or invalid values
+- Code automatically handles this - only includes if valid reference exists
+
+📝 **User_ID Handling:**
+- For passengers: References `Users.ROWID`
+- For employees/admins: References `Employees.ROWID`
+- For failed logins: Omitted entirely (user doesn't exist)
+- Automatically converted to integer and validated before insertion
+
+🔍 **Session_ID Alternative:**
+- Since Session_ID is FK requiring Sessions.ROWID, and we often only have session token
+- Actual session token stored in `Details.session_ref` field instead
+- This allows tracking session events even before/after session record exists
 
 ### Querying Audit Logs
 

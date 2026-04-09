@@ -160,7 +160,7 @@ def register():
             'Full_Name': full_name,
             'Email': email,
             'Password': hashed_password,
-            'Role': 'User',
+            'Role': 'USER',
             'Account_Status': 'Active',
         }
 
@@ -195,7 +195,7 @@ def register():
             'fullName': full_name,
             'email': email,
             'phoneNumber': phone_number,
-            'role': 'User',
+            'role': 'USER',
             'accountStatus': 'Active',
         }
 
@@ -243,12 +243,12 @@ def login():
         # Find user
         user = cloudscale_repo.get_user_by_email(email)
         if not user:
-            return jsonify({'status': 'error', 'message': 'Invalid email or password'}), 401
+            return jsonify({'status': 'error', 'message': 'No account found with this email address. Please check your email or register for a new account.'}), 404
 
         # Verify password
         stored_hash = user.get('Password', '')
         if not verify_password(password, stored_hash):
-            return jsonify({'status': 'error', 'message': 'Invalid email or password'}), 401
+            return jsonify({'status': 'error', 'message': 'Invalid password'}), 401
 
         # Check account status
         account_status = user.get('Account_Status', 'Active')
@@ -520,9 +520,9 @@ def setup_admin():
             return jsonify({'status': 'error', 'message': 'Email already exists'}), 409
 
         # Check if any admin exists
-        criteria = CriteriaBuilder().eq('Role', 'Admin').build()
+        criteria = CriteriaBuilder().is_in('Role', ['Admin', 'ADMIN']).build()
         admin_check = cloudscale_repo.execute_query(
-            f"SELECT COUNT(ROWID) as count FROM {TABLES['users']} WHERE Role = 'Admin'"
+            f"SELECT COUNT(ROWID) as count FROM {TABLES['users']} WHERE Role IN ('Admin', 'ADMIN')"
         )
         admin_count = 0
         if admin_check.get('success'):
@@ -535,7 +535,7 @@ def setup_admin():
             'Full_Name': full_name,
             'Email': email,
             'Password': hash_password(password),
-            'Role': 'Admin',
+            'Role': 'ADMIN',
             'Account_Status': 'Active',
         }
         if phone_number:
@@ -549,7 +549,7 @@ def setup_admin():
         user_id = result.get('data', {}).get('ROWID')
 
         # Generate tokens
-        access_token = generate_access_token(user_id, email, 'Admin')
+        access_token = generate_access_token(user_id, email, 'ADMIN')
         refresh_token = generate_refresh_token(user_id, email)
 
         user_response = {
@@ -557,7 +557,7 @@ def setup_admin():
             'fullName': full_name,
             'email': email,
             'phoneNumber': phone_number,
-            'role': 'Admin',
+            'role': 'ADMIN',
             'accountStatus': 'Active',
         }
 
@@ -605,18 +605,28 @@ def forgot_password():
                 'message': 'This email is not registered. Please sign up first or check your email address.'
             }), 404
 
-        # Send OTP using otp_service
-        result = send_password_reset_otp(email)
+        # Send OTP using otp_service (always track as resend)
+        result = send_password_reset_otp(email, is_resend=True)
         
         if not result.get('success'):
             error = result.get('error', 'Failed to send verification code')
             cooldown = result.get('cooldown')
+            limit_exceeded = result.get('limit_exceeded')
+            
+            if limit_exceeded:
+                return jsonify({
+                    'status': 'error',
+                    'message': error,
+                    'limit_exceeded': True
+                }), 429
+            
             if cooldown:
                 return jsonify({
                     'status': 'error',
                     'message': error,
                     'cooldown': cooldown
                 }), 429
+            
             return jsonify({'status': 'error', 'message': error}), 500
 
         logger.info(f'Password reset OTP sent to: {email}')
@@ -624,7 +634,8 @@ def forgot_password():
         return jsonify({
             'status': 'success',
             'message': 'Verification code sent to your email',
-            'expiresInMinutes': result.get('expiresInMinutes', 10)
+            'expiresInMinutes': result.get('expiresInMinutes', 10),
+            'remaining_resend_attempts': result.get('remaining_resend_attempts', 2)
         }), 200
 
     except Exception as e:

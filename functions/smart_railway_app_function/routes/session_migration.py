@@ -230,9 +230,11 @@ def test_session_tables():
         
         row_id = create_result.get('data', {}).get('ROWID')
         
-        # Verify read
+        # Verify read using CriteriaBuilder for safe Session_ID query
+        from repositories.cloudscale_repository import CriteriaBuilder
+        criteria = CriteriaBuilder().id_eq("Session_ID", test_session_id).build()
         read_result = cloudscale_repo.execute_query(
-            f"SELECT * FROM Sessions WHERE Session_ID = '{test_session_id}'"
+            f"SELECT * FROM Sessions WHERE {criteria}"
         )
         if not read_result.get('success'):
             return jsonify({

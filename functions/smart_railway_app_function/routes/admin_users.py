@@ -7,18 +7,19 @@ from flask import Blueprint, jsonify, request
 
 from repositories.cloudscale_repository import cloudscale_repo, CriteriaBuilder
 from config import TABLES, ADMIN_DOMAIN
-from core.security import require_admin, hash_password
+from core.security import hash_password
+from core.session_middleware import require_session_admin
 
 logger = logging.getLogger(__name__)
 admin_users_bp = Blueprint('admin_users', __name__)
 
 
 @admin_users_bp.route('/admin/users', methods=['GET'])
-@require_admin
+@require_session_admin
 def get_admin_users():
     """Get all admin users."""
     try:
-        criteria = CriteriaBuilder().eq('Role', 'Admin').build()
+        criteria = CriteriaBuilder().is_in('Role', ['Admin', 'ADMIN']).build()
         result = cloudscale_repo.get_all_records(TABLES['users'], criteria=criteria, limit=100)
 
         if result.get('success'):
@@ -34,7 +35,7 @@ def get_admin_users():
 
 
 @admin_users_bp.route('/admin/users', methods=['POST'])
-@require_admin
+@require_session_admin
 def create_admin_user():
     """Create a new admin user."""
     data = request.get_json(silent=True) or {}
@@ -60,7 +61,7 @@ def create_admin_user():
             'Full_Name': full_name,
             'Email': email,
             'Password': hash_password(password),
-            'Role': 'Admin',
+            'Role': 'ADMIN',
             'Account_Status': 'Active',
         }
 
@@ -79,7 +80,7 @@ def create_admin_user():
 
 
 @admin_users_bp.route('/admin/users/<user_id>', methods=['PUT'])
-@require_admin
+@require_session_admin
 def update_admin_user(user_id):
     """Update an admin user."""
     data = request.get_json(silent=True) or {}
@@ -110,7 +111,7 @@ def update_admin_user(user_id):
 
 
 @admin_users_bp.route('/admin/users/<user_id>', methods=['DELETE'])
-@require_admin
+@require_session_admin
 def delete_admin_user(user_id):
     """Delete an admin user."""
     try:
@@ -128,11 +129,11 @@ def delete_admin_user(user_id):
 
 
 @admin_users_bp.route('/admin/users/<user_id>/promote', methods=['POST'])
-@require_admin
+@require_session_admin
 def promote_to_admin(user_id):
     """Promote a regular user to admin."""
     try:
-        result = cloudscale_repo.update_record(TABLES['users'], user_id, {'Role': 'Admin'})
+        result = cloudscale_repo.update_record(TABLES['users'], user_id, {'Role': 'ADMIN'})
 
         if result.get('success'):
             cloudscale_repo.invalidate_user_cache(user_id)
@@ -146,11 +147,11 @@ def promote_to_admin(user_id):
 
 
 @admin_users_bp.route('/admin/users/<user_id>/demote', methods=['POST'])
-@require_admin
+@require_session_admin
 def demote_from_admin(user_id):
     """Demote an admin to regular user."""
     try:
-        result = cloudscale_repo.update_record(TABLES['users'], user_id, {'Role': 'User'})
+        result = cloudscale_repo.update_record(TABLES['users'], user_id, {'Role': 'USER'})
 
         if result.get('success'):
             cloudscale_repo.invalidate_user_cache(user_id)

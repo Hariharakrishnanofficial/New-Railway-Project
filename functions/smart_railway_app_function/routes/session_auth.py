@@ -40,6 +40,7 @@ from core.session_middleware import (
     get_current_user_email,
     get_current_session_id,
     get_current_csrf_token,
+    get_current_user_type,
 )
 from services.session_service import (
     create_session,
@@ -151,7 +152,7 @@ def _get_user_agent() -> str:
     return request.headers.get('User-Agent', '')[:500]
 
 
-def _set_session_cookie(response, session_id: str) -> None:
+def _set_session_cookie(response, session_id: str, user_type: str = 'user') -> None:
     """Set HttpOnly session cookie on response."""
     expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_TIMEOUT_HOURS)
     
@@ -160,6 +161,17 @@ def _set_session_cookie(response, session_id: str) -> None:
         session_id,
         expires=expires,
         httponly=SESSION_COOKIE_HTTPONLY,
+        secure=SESSION_COOKIE_SECURE,
+        samesite=SESSION_COOKIE_SAMESITE,
+        path='/',
+        domain=None  # Explicitly allow any domain for local testing
+    )
+    # Also set a legacy cookie for compatibility if needed
+    response.set_cookie(
+        'is_employee',
+        'true' if user_type == 'employee' else 'false',
+        expires=expires,
+        httponly=False, # Accessible by JS
         secure=SESSION_COOKIE_SECURE,
         samesite=SESSION_COOKIE_SAMESITE,
         path='/'
@@ -275,7 +287,7 @@ def session_register():
             'Full_Name': full_name,
             'Email': email,
             'Password': hashed_password,
-            'Role': 'User',
+                'Role': 'USER',
             'Account_Status': 'Active',
         }
 
@@ -301,14 +313,15 @@ def session_register():
 
         user_id = result.get('data', {}).get('ROWID')
 
-        # Create session
+        # Create session for passenger
         session_id, csrf_token = create_session(
             user_id=user_id,
             user_email=email,
             user_role='User',
             ip_address=_get_client_ip(),
             user_agent=_get_user_agent(),
-            device_fingerprint=_extract_device_fingerprint()
+            device_fingerprint=_extract_device_fingerprint(),
+            user_type='user'  # Direct registration = passenger
         )
 
         user_response = {
@@ -316,8 +329,9 @@ def session_register():
             'fullName': full_name,
             'email': email,
             'phoneNumber': phone_number,
-            'role': 'User',
+                'role': 'USER',
             'accountStatus': 'Active',
+            'type': 'user',
         }
 
         # Build response with session cookie
@@ -330,7 +344,7 @@ def session_register():
             }
         }), 201)
 
-        _set_session_cookie(response, session_id)
+        _set_session_cookie(response, session_id, user_type='user')
         return response
 
     except Exception as e:
@@ -378,7 +392,7 @@ def session_login():
                 details={"reason": "user_not_found"},
                 severity="WARNING"
             )
-            return jsonify({'status': 'error', 'message': 'Invalid email or password'}), 401
+            return jsonify({'status': 'error', 'message': 'No account found with this email address. Please check your email or register for a new account.'}), 404
 
         # Verify password
         stored_hash = user.get('Password', '')
@@ -421,16 +435,19 @@ def session_login():
         role = user.get('Role', 'User')
 
         # Create session (enforces concurrent session limit)
+        # user_type='user' for passengers from Users table
         session_id, csrf_token = create_session(
             user_id=user_id,
             user_email=email,
             user_role=role,
             ip_address=_get_client_ip(),
             user_agent=_get_user_agent(),
-            device_fingerprint=_extract_device_fingerprint()
+            device_fingerprint=_extract_device_fingerprint(),
+            user_type='user'  # Passenger login = 'user' type
         )
 
         user_response = _build_user_response(user)
+        user_response['type'] = 'user'  # Add type to response
 
         # Build response with session cookie
         response = make_response(jsonify({
@@ -438,16 +455,253 @@ def session_login():
             'message': 'Login successful',
             'data': {
                 'user': user_response,
+                'type': 'user',
                 'csrfToken': csrf_token,
             }
         }), 200)
 
-        _set_session_cookie(response, session_id)
+        _set_session_cookie(response, session_id, user_type='user')
         return response
 
     except Exception as e:
         logger.exception(f'Session login error: {e}')
         return jsonify({'status': 'error', 'message': 'Login failed'}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  EMPLOYEE LOGIN (Separate from passenger login)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@session_auth_bp.route('/session/employee/login', methods=['POST'])
+@rate_limit(max_calls=10, window_seconds=900)
+def employee_login():
+    """
+    Login for employees (Admin/Staff).
+    Authenticates directly against the Employees table.
+    """
+    from services.employee_service import authenticate_employee
+    
+    cloudscale_ok, cloudscale_error = _probe_cloudscale_connection()
+    if not cloudscale_ok and _is_backend_setup_error(cloudscale_error):
+        return jsonify({
+            'status': 'error',
+            'message': BACKEND_SETUP_MESSAGE,
+            'details': cloudscale_error,
+        }), 503
+
+    data = _extract_payload()
+
+    email = (data.get('email') or data.get('Email') or '').strip().lower()
+    password = data.get('password') or data.get('Password') or ''
+
+    if not email or not password:
+        return jsonify({'status': 'error', 'message': 'Email and password are required'}), 400
+
+    try:
+        # Step 1: Authenticate directly from Employees table
+        auth_result = authenticate_employee(email, password)
+        
+        if not auth_result.get('success'):
+            error_code = auth_result.get('error_code') or 'AUTH_FAILED'
+            message = auth_result.get('error', 'Invalid email or password')
+
+            # Log failed login attempt
+            log_audit_event(
+                event_type="EMPLOYEE_LOGIN_FAILED",
+                user_email=email,
+                ip_address=_get_client_ip(),
+                details={"reason": message, "error_code": error_code},
+                severity="WARNING"
+            )
+
+            if error_code == 'EMPLOYEE_NOT_FOUND':
+                status_code = 404
+            elif error_code == 'EMPLOYEE_ACCOUNT_INACTIVE':
+                status_code = 403
+            elif error_code == 'INVALID_PASSWORD':
+                status_code = 401
+            else:
+                status_code = 401
+
+            return jsonify({
+                'status': 'error',
+                'message': message,
+                'error_code': error_code,
+            }), status_code
+
+        employee = auth_result['data']
+        # Use ROWID from Employees table as the session user_id
+        employee_row_id = str(employee.get('row_id'))
+        role = employee.get('role', 'EMPLOYEE')
+
+        # Step 2: Create server-side session
+        session_id, csrf_token = create_session(
+            user_id=employee_row_id,
+            user_email=email,
+            user_role=role,
+            ip_address=_get_client_ip(),
+            user_agent=_get_user_agent(),
+            device_fingerprint=_extract_device_fingerprint(),
+            user_type='employee'
+        )
+
+        # Build employee response mapping exactly to frontend expected keys
+        employee_response = {
+            'id': str(employee_row_id),
+            'employeeId': employee.get('employee_id'),
+            'fullName': employee.get('full_name'),
+            'email': email,
+            'role': role,
+            'department': employee.get('department'),
+            'designation': employee.get('designation'),
+            'phoneNumber': employee.get('phone_number'),
+            'type': 'employee',
+        }
+
+        # Step 3: Success response
+        response = make_response(jsonify({
+            'status': 'success',
+            'message': 'Employee login successful',
+            'data': {
+                'employee': employee_response,
+                'user': employee_response,  # Add user for frontend compatibility
+                'csrfToken': csrf_token,
+            }
+        }))
+        _set_session_cookie(response, session_id, user_type='employee')
+
+        # Log successful login
+        log_audit_event(
+            event_type="EMPLOYEE_LOGIN_SUCCESS",
+            user_email=email,
+            user_id=str(employee_row_id),
+            ip_address=_get_client_ip(),
+            details={"employee_id": employee.get('employee_id'), "role": role},
+            severity="INFO"
+        )
+        
+        return response
+
+    except Exception as e:
+        logger.exception(f'Employee login error: {e}')
+        return jsonify({'status': 'error', 'message': 'Login failed'}), 500
+
+
+@session_auth_bp.route('/session/employee/register', methods=['POST'])
+@rate_limit(max_calls=5, window_seconds=3600)
+def employee_register():
+    """
+    Register a new employee.
+    Creates records in both Users (auth) and Employees (staff profile) tables.
+    """
+    cloudscale_ok, cloudscale_error = _probe_cloudscale_connection()
+    if not cloudscale_ok and _is_backend_setup_error(cloudscale_error):
+        return jsonify({
+            'status': 'error',
+            'message': BACKEND_SETUP_MESSAGE,
+            'details': cloudscale_error,
+        }), 503
+
+    data = _extract_payload()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+    full_name = (data.get('fullName') or data.get('Full_Name') or '').strip()
+    email = (data.get('email') or data.get('Email') or '').strip().lower()
+    password = data.get('password') or data.get('Password') or ''
+    phone_number = (data.get('phoneNumber') or data.get('Phone_Number') or '').strip()
+    
+    # Staff specific fields
+    department = (data.get('department') or data.get('Department') or 'General').strip()
+    designation = (data.get('designation') or data.get('Designation') or 'Staff').strip()
+
+    # Validation
+    if not full_name or not email or not password:
+        return jsonify({'status': 'error', 'message': 'Full name, email and password are required'}), 400
+    if len(password) < 8:
+        return jsonify({'status': 'error', 'message': 'Password must be at least 8 characters'}), 400
+
+    try:
+        # 1. Check if email already exists in Users
+        existing = cloudscale_repo.get_user_by_email(email)
+        if existing:
+            return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
+
+        # 2. Create User record (Auth)
+        hashed_password = hash_password(password)
+        user_data = {
+            'Full_Name': full_name,
+            'Email': email,
+            'Password': hashed_password,
+            'Role': 'EMPLOYEE',
+            'Account_Status': 'Active',
+            'Phone_Number': phone_number if phone_number else None
+        }
+
+        user_result = cloudscale_repo.create_record(TABLES['users'], user_data)
+        if not user_result.get('success'):
+            return jsonify({'status': 'error', 'message': 'User creation failed', 'details': str(user_result.get('error'))}), 500
+        
+        user_id = user_result.get('data', {}).get('ROWID')
+
+        # 3. Create Employee record (Profile)
+        # Note: We use minimal fields initially to avoid 400 "Invalid column" errors 
+        # while the schema is being discovered/fixed.
+        employee_data = {
+            'Full_Name': full_name,
+            'Email': email,
+            'User_ID': user_id,
+            'Role': 'EMPLOYEE',
+            'Account_Status': 'Active'
+            # Department and Designation often trigger 400 errors if columns aren't named exactly
+        }
+
+        emp_result = cloudscale_repo.create_record(TABLES['employees'], employee_data)
+        if not emp_result.get('success'):
+            # Cleanup user if employee profile creation fails
+            # cloudscale_repo.delete_record(TABLES['users'], user_id) 
+            return jsonify({'status': 'error', 'message': 'Employee profile creation failed', 'details': str(emp_result.get('error'))}), 500
+
+        # 4. Create session
+        session_id, csrf_token = create_session(
+            user_id=user_id,
+            user_email=email,
+            user_role='EMPLOYEE',
+            ip_address=_get_client_ip(),
+            user_agent=_get_user_agent(),
+            device_fingerprint=_extract_device_fingerprint(),
+            user_type='employee'
+        )
+
+        # 5. Success response
+        response = make_response(jsonify({
+            'status': 'success',
+            'message': 'Employee registration successful',
+            'data': {
+                'employee': {
+                    'id': user_id,
+                    'fullName': full_name,
+                    'email': email,
+                    'role': 'EMPLOYEE',
+                    'type': 'employee'
+                },
+                'user': {
+                    'id': user_id,
+                    'fullName': full_name,
+                    'email': email,
+                    'role': 'EMPLOYEE',
+                    'type': 'employee'
+                },
+                'csrfToken': csrf_token
+            }
+        }), 201)
+
+        _set_session_cookie(response, session_id, user_type='employee')
+        return response
+
+    except Exception as e:
+        logger.exception(f'Employee registration error: {e}')
+        return jsonify({'status': 'error', 'message': 'Registration failed'}), 500
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -486,33 +740,79 @@ def session_logout():
 @require_session
 def session_validate():
     """
-    Validate current session and return user data.
+    Validate current session and return user/employee data.
+    
+    Handles both passengers (Users table) and employees (Employees table)
+    based on session user_type.
     
     Also returns CSRF token for subsequent requests.
     """
     user_id = get_current_user_id()
+    user_type = get_current_user_type()
 
     try:
-        result = cloudscale_repo.get_record_by_id(TABLES['users'], user_id)
-
-        if not result.get('success') or not result.get('data'):
-            return jsonify({'status': 'error', 'message': 'User not found'}), 401
-
-        user = result['data']
-        account_status = user.get('Account_Status', 'Active')
-
-        if account_status != 'Active':
-            return jsonify({'status': 'error', 'message': 'Account is not active'}), 403
-
-        user_response = _build_user_response(user)
-
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'user': user_response,
-                'csrfToken': get_current_csrf_token(),
+        if user_type == 'employee':
+            # Employee session - fetch from Employees table
+            employee = cloudscale_repo.get_employee_by_id(user_id)
+            
+            if not employee:
+                return jsonify({'status': 'error', 'message': 'Employee not found'}), 401
+            
+            account_status = employee.get('Account_Status', 'Active')
+            if account_status != 'Active':
+                return jsonify({'status': 'error', 'message': f'Account is {account_status}'}), 403
+            
+            # Note: Permissions field doesn't exist in current Employees table
+            # Using empty permissions for now
+            permissions = {}
+            
+            employee_response = {
+                'id': str(employee.get('ROWID')),
+                'employeeId': employee.get('Employee_ID'),
+                'fullName': employee.get('Full_Name'),
+                'email': employee.get('Email'),
+                'role': employee.get('Role', 'EMPLOYEE'),
+                'department': employee.get('Department'),
+                'designation': employee.get('Designation'),
+                'phoneNumber': employee.get('Phone_Number'),
+                'permissions': permissions,
+                'type': 'employee',
             }
-        }), 200
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'employee': employee_response,
+                    'user': employee_response,  # Also include as 'user' for compatibility
+                    'type': 'employee',
+                    'csrfToken': get_current_csrf_token(),
+                }
+            }), 200
+        
+        else:
+            # Passenger session - fetch from Users table
+            result = cloudscale_repo.get_record_by_id(TABLES['users'], user_id)
+
+            if not result.get('success') or not result.get('data'):
+                return jsonify({'status': 'error', 'message': 'User not found'}), 401
+
+            user = result['data']
+            account_status = user.get('Account_Status', 'Active')
+
+            if account_status != 'Active':
+                return jsonify({'status': 'error', 'message': 'Account is not active'}), 403
+
+            user_response = _build_user_response(user)
+            user_response['type'] = 'user'
+
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'user': user_response,
+                    'type': 'user',
+                    'csrfToken': get_current_csrf_token(),
+                }
+            }), 200
 
     except Exception as e:
         logger.exception(f'Session validate error: {e}')

@@ -38,6 +38,10 @@ TABLES = {
     'session_audit':   'Session_Audit_Log',
     # OTP verification table
     'otp_tokens':      'OTP_Tokens',
+    # Employee invitation table
+    'employee_invitations': 'Employee_Invitations',
+    # Employees table (staff: Admin/Employee roles)
+    'employees':       'Employees',
 }
 
 
@@ -358,10 +362,15 @@ SESSION_COOKIE_SAMESITE = 'Strict' if _is_production else 'Lax'
 # HttpOnly: Always True for security
 SESSION_COOKIE_HTTPONLY = True
 
+# Secret hardening: allow defaults in development, enforce strong secret in production.
+if _is_production:
+    if not SESSION_SECRET or SESSION_SECRET == 'railway-session-secret-change-in-production' or len(SESSION_SECRET) < 32:
+        raise RuntimeError('SESSION_SECRET must be set to a strong value (>=32 chars) in production')
+
 # Log cookie configuration (after logger is defined)
 try:
     logger.info(f"Session cookies: Secure={SESSION_COOKIE_SECURE}, SameSite={SESSION_COOKIE_SAMESITE}")
-except:
+except Exception:
     pass  # Ignore if logging not yet configured
 
 # CSRF protection
@@ -388,7 +397,7 @@ if _is_production:
         # Log warning if logger is available
         try:
             logger.warning("PRODUCTION: No CORS_ALLOWED_ORIGINS set! CORS will block all origins.")
-        except:
+        except Exception:
             pass
     
     DEFAULT_ALLOWED_ORIGINS = [

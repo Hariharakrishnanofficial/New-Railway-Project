@@ -12,6 +12,16 @@ from datetime import datetime
 from flask import Flask, jsonify, request
 import zcatalyst_sdk
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
+# Debug: Log environment variables to verify loading
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.info(f"FROM_EMAIL loaded: {os.getenv('CATALYST_FROM_EMAIL', 'NOT_SET')}")
+logger.info(f"CORS_ALLOWED_ORIGINS: {os.getenv('CORS_ALLOWED_ORIGINS', 'NOT_SET')}")
+
 try:
     import certifi
 except Exception:  # pragma: no cover
@@ -21,11 +31,14 @@ except Exception:  # pragma: no cover
 def _ensure_valid_ca_bundle_env():
     """Ensure requests/curl use a real CA bundle, not stale .build paths."""
     valid_bundle = None
+    
+    # Try certifi first (most reliable)
     if certifi is not None:
         try:
             bundle_candidate = certifi.where()
             if bundle_candidate and os.path.exists(bundle_candidate):
                 valid_bundle = bundle_candidate
+                logger.info(f"Found certifi bundle: {valid_bundle}")
         except Exception:
             valid_bundle = None
 
@@ -35,12 +48,38 @@ def _ensure_valid_ca_bundle_env():
         if current:
             # Check if path exists, or if it points to .build (often stale)
             if not os.path.exists(current) or '.build' in current:
+                logger.warning(f"Removing invalid TLS path from {key}: {current}")
                 os.environ.pop(key, None)
-
-    if valid_bundle:
+    
+    # Try multiple possible paths for CA bundle
+    possible_paths = [
+        # Python site-packages certifi
+        os.path.join(os.path.dirname(os.__file__), 'site-packages', 'certifi', 'cacert.pem'),
+        # Common Windows paths for different Python versions
+        r"C:\Users\Hariharan krishnan S\AppData\Local\Programs\Python\Python39\Lib\site-packages\certifi\cacert.pem",
+        r"C:\Users\Hariharan krishnan S\AppData\Local\Programs\Python\Python310\Lib\site-packages\certifi\cacert.pem",
+        r"C:\Users\Hariharan krishnan S\AppData\Local\Programs\Python\Python311\Lib\site-packages\certifi\cacert.pem",
+        r"C:\Users\Hariharan krishnan S\AppData\Local\Programs\Python\Python312\Lib\site-packages\certifi\cacert.pem",
+        r"C:\Users\Hariharan krishnan S\AppData\Local\Programs\Python\Python313\Lib\site-packages\certifi\cacert.pem",
+        r"C:\Users\Hariharan krishnan S\AppData\Local\Programs\Python\Python314\Lib\site-packages\certifi\cacert.pem",
+    ]
+    
+    # Use valid_bundle from certifi if found, otherwise try paths
+    if valid_bundle and os.path.exists(valid_bundle):
         os.environ['SSL_CERT_FILE'] = valid_bundle
         os.environ['REQUESTS_CA_BUNDLE'] = valid_bundle
         os.environ['CURL_CA_BUNDLE'] = valid_bundle
+        logger.info(f"Set TLS bundle from certifi: {valid_bundle}")
+    else:
+        for path in possible_paths:
+            if os.path.exists(path):
+                os.environ['SSL_CERT_FILE'] = path
+                os.environ['REQUESTS_CA_BUNDLE'] = path
+                os.environ['CURL_CA_BUNDLE'] = path
+                logger.info(f"Set TLS bundle from path: {path}")
+                break
+        else:
+            logger.warning("No valid TLS CA bundle found!")
 
 
 _ensure_valid_ca_bundle_env()
@@ -80,36 +119,89 @@ def create_flask_app():
     # Create CORS middleware with strict validation
     create_cors_middleware(app, DEFAULT_ALLOWED_ORIGINS)
 
+    from core.exceptions import RailwayException
+    from core.error_tracking import (
+        attach_request_id_header,
+        ensure_request_id,
+        get_request_id,
+        record_application_error,
+    )
+
+    @app.before_request
+    def assign_request_id():
+        ensure_request_id()
+
+    @app.after_request
+    def attach_request_id(response):
+        return attach_request_id_header(response)
+
     # ── Error Handlers ────────────────────────────────────────────────────────
+    @app.errorhandler(RailwayException)
+    def handle_railway_exception(exc):
+        request_id = get_request_id()
+        error_code = exc.error_code or 'APPLICATION_ERROR'
+        logger.warning(
+            'Handled RailwayException [%s] %s %s (%s)',
+            error_code,
+            request.method,
+            request.path,
+            request_id,
+        )
+        record_application_error(exc, exc.status_code, error_code, exc.message)
+
+        payload = exc.to_response()
+        payload.setdefault('error_code', error_code)
+        payload['request_id'] = request_id
+        return jsonify(payload), exc.status_code
+
     @app.errorhandler(Exception)
     def handle_unhandled(exc):
-        logger.exception(f'Unhandled exception: {exc}')
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+        request_id = get_request_id()
+        logger.exception('Unhandled exception (%s): %s', request_id, exc)
+        record_application_error(exc, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error')
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error',
+            'error_code': 'INTERNAL_SERVER_ERROR',
+            'request_id': request_id,
+        }), 500
 
     @app.errorhandler(404)
     def handle_404(exc):
-        return jsonify({'status': 'error', 'message': 'Endpoint not found'}), 404
+        request_id = get_request_id()
+        return jsonify({
+            'status': 'error',
+            'message': 'Endpoint not found',
+            'error_code': 'ENDPOINT_NOT_FOUND',
+            'request_id': request_id,
+        }), 404
 
     @app.errorhandler(405)
     def handle_405(exc):
-        return jsonify({'status': 'error', 'message': 'Method not allowed'}), 405
+        request_id = get_request_id()
+        return jsonify({
+            'status': 'error',
+            'message': 'Method not allowed',
+            'error_code': 'METHOD_NOT_ALLOWED',
+            'request_id': request_id,
+        }), 405
 
-    # ── Root Endpoint ─────────────────────────────────────────────────────────
+    # ── Root Endpoint - API Info ────────────────────────────────────────────
     @app.route('/')
     def index():
+        """API information endpoint."""
         return jsonify({
             'status': 'success',
             'message': 'Smart Railway Ticketing System API',
             'version': '2.0.0',
-            'runtime': 'Zoho Catalyst Functions + CloudScale Database',
+            'client_url': '/app/index.html',
             'endpoints': {
                 'health': '/health',
                 'auth': '/auth/*',
+                'session': '/session/*',
                 'users': '/users',
                 'trains': '/trains',
-                'stations': '/stations',
                 'bookings': '/bookings',
-                'fares': '/fares',
             }
         })
 
@@ -136,25 +228,330 @@ def create_flask_app():
     # Only register debug endpoints in development environment
     if os.getenv('APP_ENVIRONMENT') == 'development':
         
-        @app.route('/debug/columns')
-        def debug_columns():
-            """Debug endpoint to list table columns (DEVELOPMENT ONLY)."""
+        @app.route('/debug/env')
+        def debug_environment():
+            """Debug endpoint to check environment variable loading."""
+            from services.otp_service import FROM_EMAIL, APP_NAME, OTP_EXPIRY_MINUTES, CATALYST_AVAILABLE
+            
+            env_debug = {
+                'email_config': {
+                    'CATALYST_FROM_EMAIL': os.getenv('CATALYST_FROM_EMAIL', 'NOT_SET'),
+                    'APP_NAME': os.getenv('APP_NAME', 'NOT_SET'),
+                },
+                'otp_config': {
+                    'OTP_EXPIRY_MINUTES': os.getenv('OTP_EXPIRY_MINUTES', 'NOT_SET'),
+                    'OTP_MAX_ATTEMPTS': os.getenv('OTP_MAX_ATTEMPTS', 'NOT_SET'),
+                    'OTP_RESEND_COOLDOWN_SECONDS': os.getenv('OTP_RESEND_COOLDOWN_SECONDS', 'NOT_SET'),
+                    'OTP_MAX_RESEND_ATTEMPTS': os.getenv('OTP_MAX_RESEND_ATTEMPTS', 'NOT_SET'),
+                },
+                'cors_config': {
+                    'CORS_ALLOWED_ORIGINS': os.getenv('CORS_ALLOWED_ORIGINS', 'NOT_SET'),
+                },
+                'session_config': {
+                    'SESSION_SECRET': os.getenv('SESSION_SECRET', 'NOT_SET')[:20] + '...' if os.getenv('SESSION_SECRET') else 'NOT_SET',
+                    'SESSION_TIMEOUT_HOURS': os.getenv('SESSION_TIMEOUT_HOURS', 'NOT_SET'),
+                    'SESSION_COOKIE_SECURE': os.getenv('SESSION_COOKIE_SECURE', 'NOT_SET'),
+                },
+                'environment_info': {
+                    'APP_ENVIRONMENT': os.getenv('APP_ENVIRONMENT', 'NOT_SET'),
+                    'env_file_exists': os.path.exists('.env'),
+                    'current_working_directory': os.getcwd(),
+                },
+                'loaded_values_in_service': {
+                    'FROM_EMAIL_in_otp_service': FROM_EMAIL,
+                    'APP_NAME_in_otp_service': APP_NAME,
+                    'OTP_EXPIRY_MINUTES_in_service': OTP_EXPIRY_MINUTES,
+                    'CATALYST_AVAILABLE': CATALYST_AVAILABLE,
+                }
+            }
+            
+            return jsonify({
+                'status': 'success',
+                'environment_debug': env_debug,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        
+        @app.route('/debug/create-tables', methods=['POST'])
+        def create_missing_tables():
+            """Debug endpoint to create missing tables (DEVELOPMENT ONLY)."""
             from repositories.cloudscale_repository import get_catalyst_app
 
             try:
                 catalyst_app = get_catalyst_app()
                 if not catalyst_app:
                     return jsonify({'status': 'error', 'message': 'Catalyst not initialized'}), 500
+                
+                # Create Employee_Invitations table if it doesn't exist
+                try:
+                    table_service = catalyst_app.datastore()
+                    
+                    # Check if Employee_Invitations table exists
+                    try:
+                        table_service.get_table('Employee_Invitations')
+                        table_exists = True
+                    except:
+                        table_exists = False
+                    
+                    if not table_exists:
+                        # Create Employee_Invitations table
+                        table_instance = table_service.get_table()
+                        table_instance.table_name = 'Employee_Invitations'
+                        
+                        # Add columns
+                        table_instance.add_column('email', 'text')
+                        table_instance.add_column('token', 'text')  
+                        table_instance.add_column('expires_at', 'datetime')
+                        table_instance.add_column('invited_by_user_id', 'bigint')
+                        table_instance.add_column('used_at', 'datetime')
+                        table_instance.add_column('registered_user_id', 'bigint')
+                        table_instance.add_column('created_at', 'datetime')
+                        
+                        # Create the table
+                        created_table = table_service.create(table_instance)
+                        
+                        return jsonify({
+                            'status': 'success',
+                            'message': 'Employee_Invitations table created successfully',
+                            'table_id': created_table.table_id if hasattr(created_table, 'table_id') else None
+                        }), 200
+                    else:
+                        return jsonify({
+                            'status': 'info',
+                            'message': 'Employee_Invitations table already exists'
+                        }), 200
+                
+                except Exception as table_error:
+                    logger.error(f"Table creation error: {str(table_error)}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'Failed to create table: {str(table_error)}'
+                    }), 500
+            
+            except Exception as e:
+                logger.error(f"Create tables error: {str(e)}")
+                return jsonify({'status': 'error', 'message': str(e)}), 500
 
+        @app.route('/debug/tables')
+        def debug_tables():
+            """Debug endpoint to check table existence and create missing tables (DEVELOPMENT ONLY)."""
+            from repositories.cloudscale_repository import get_catalyst_app, CloudScaleRepository
+            from config import TABLES
+
+            try:
+                catalyst_app = get_catalyst_app()
+                if not catalyst_app:
+                    return jsonify({'status': 'error', 'message': 'Catalyst not initialized'}), 500
+                
+                repo = CloudScaleRepository()
+                table_status = {}
+                
+                for table_key, table_name in TABLES.items():
+                    try:
+                        actual_name = repo._resolve_table(table_name)
+                        
+                        exists = False
+                        error_msg = None
+                        try:
+                            # Use datastore to check existence instead of ZCQL
+                            datastore = catalyst_app.datastore()
+                            datastore.table(actual_name)
+                            exists = True
+                        except Exception as e:
+                            error_msg = str(e)
+                            exists = False
+
+                        table_status[table_key] = {
+                            'name': actual_name,
+                            'exists': exists,
+                            'records_count': 0,
+                            'check_error': error_msg
+                        }
+                        
+                        if exists:
+                            try:
+                                # Try to get record count via ZCQL if table exists
+                                count = repo.count_records(actual_name)
+                                table_status[table_key]['records_count'] = count
+                            except:
+                                pass
+                    except Exception as e:
+                        table_status[table_key] = {
+                            'name': table_name,
+                            'exists': False,
+                            'error': str(e)
+                        }
+                
+                return jsonify({
+                    'status': 'success',
+                    'table_status': table_status,
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 200
+            
+            except Exception as e:
+                logger.error(f"Debug tables error: {str(e)}")
+                return jsonify({'status': 'error', 'message': str(e)}), 500
+
+        @app.route('/debug/columns')
+        def debug_columns():
+            """Debug endpoint to list table columns (DEVELOPMENT ONLY)."""
+            from repositories.cloudscale_repository import get_catalyst_app
+            from config import TABLES
+
+            try:
+                table_name = request.args.get('table', 'Users')
+                # Resolve table name from alias
+                actual_table = TABLES.get(table_name.lower(), table_name)
+                
+                catalyst_app = get_catalyst_app()
+                if not catalyst_app:
+                    return jsonify({'status': 'error', 'message': 'Catalyst not initialized'}), 500
+                
+                # Check for table existence first using Datastore
+                try:
+                    datastore = catalyst_app.datastore()
+                    table_obj = datastore.table(actual_table)
+                except Exception as e:
+                    return jsonify({'status': 'error', 'message': f"Table '{actual_table}' access error: {str(e)}"}), 400
+
+                # Try to get columns from ZCQL (requires at least one record)
                 zcql = catalyst_app.zcql()
-                result = zcql.execute_query("SELECT * FROM Users LIMIT 1")
+                result = zcql.execute_query(f"SELECT * FROM {actual_table} LIMIT 1")
 
                 if result:
-                    columns = list(result[0]['Users'].keys())
-                    return jsonify({'status': 'success', 'columns': columns}), 200
-                else:
-                    return jsonify({'status': 'success', 'message': 'No users found'}), 200
+                    # Provide full data for debugging User setup
+                    return jsonify({
+                        'status': 'success',
+                        'table': actual_table,
+                        'data': result,
+                        'count': len(result)
+                    }), 200
+                
+                # If no records, try to find the structure via an empty INSERT attempt (hacky but works for schema discovery if it fails with specific error)
+                # Alternatively, try to insert a dummy row and delete it, but that's risky.
+                # Better: try to use the 'meta' or 'describe' if Catalyst supported it.
+                # Since it doesn't, we'll try to guess columns from common knowledge or return a message.
+                
+                return jsonify({
+                    'status': 'success', 
+                    'table': actual_table, 
+                    'message': f'No records found in {actual_table}',
+                    'hint': 'Add at least one record to see columns via this endpoint.'
+                }), 200
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': str(e)}), 500
 
+        @app.route('/debug/force-update-admin', methods=['POST'])
+        def debug_force_update_admin():
+            """Force update Role and Account_Status of a user to Admin in development."""
+            from repositories.cloudscale_repository import CloudScaleRepository
+            from config import TABLES
+            try:
+                data = request.json or {}
+                email = data.get('email', 'test@railway.com').lower()
+                repo = CloudScaleRepository()
+                
+                # Update role and status
+                update_q = f"UPDATE Users SET Role = 'ADMIN', Account_Status = 'Active' WHERE Email = '{email}'"
+                res = repo.execute_query(update_q)
+                
+                # Verify
+                check_q = f"SELECT ROWID, Role, Account_Status FROM Users WHERE Email = '{email}'"
+                check_res = repo.execute_query(check_q)
+
+                # Attempt to create Employee record if not existing
+                status = "Not Created"
+                try:
+                    # Execute manual check
+                    zcql = repo._get_zcql()
+                    q = f"SELECT ROWID FROM Employees WHERE Email = '{email}'"
+                    emp_check = zcql.execute_query(q)
+                    
+                    # If empty list, create
+                    if isinstance(emp_check, list) and len(emp_check) == 0:
+                        # Create record using direct Datastore to bypass any logic errors
+                        ds = repo._get_datastore()
+                        table = ds.table(TABLES['employees'])
+                        emp_data = {
+                            'Full_Name': 'System Admin',
+                            'Email': email,
+                            'Role': 'Admin',
+                            'Account_Status': 'Active',
+                            'Password': 'DUMMY_PASSWORD' # Add mandatory field
+                        }
+                        create_res = table.insert_row(emp_data)
+                        status = f"Created: {str(create_res)}"
+                    else:
+                        status = f"Already Exists (Count: {len(emp_check)})"
+                except Exception as e:
+                    status = f"Error: {str(e)}"
+                
+                return jsonify({
+                    'status': 'success',
+                    'update_result': res,
+                    'current_state': check_res,
+                    'employee_record': status
+                }), 200
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': str(e)}), 500
+
+        @app.route('/debug/create-admin', methods=['POST'])
+        def debug_create_admin():
+            """Development-only endpoint to bootstrap admin user."""
+            from repositories.cloudscale_repository import CloudScaleRepository
+            from config import TABLES
+            import bcrypt
+            
+            try:
+                data = request.json or {}
+                email = data.get('email', 'admin@railway.com')
+                full_name = data.get('full_name', 'System Admin')
+                password = data.get('password', 'Admin@123')
+                
+                repo = CloudScaleRepository()
+                
+                # 1. Create User
+                user_pwd_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                user_data = {
+                    'Full_Name': full_name,
+                    'Email': email.lower(),
+                    'Password': user_pwd_hash,
+                    'Role': 'ADMIN',
+                    'Account_Status': 'Active'
+                }
+                
+                user_res = repo.create_record(TABLES['users'], user_data)
+                if not user_res.get('success'):
+                    return jsonify({'status': 'error', 'step': 'user', 'message': user_res.get('error')}), 400
+                    
+                user_id = user_res['data'].get('ROWID')
+                
+                # 2. Create Employee
+                emp_data = {
+                    'Employee_ID': 'ADM-001',
+                    'Full_Name': full_name,
+                    'Email': email.lower(),
+                    'Role': 'Admin',
+                    'Invited_By': user_id, # Self-link as first admin
+                    'Department': 'Admin', # Added common missing fields
+                    'Designation': 'Admin'
+                }
+                
+                emp_res = repo.create_record(TABLES['employees'], emp_data)
+                if not emp_res.get('success'):
+                    return jsonify({
+                        'status': 'error', 
+                        'step': 'employee', 
+                        'message': emp_res.get('error'),
+                        'user_id': user_id,
+                        'sent_data': emp_data
+                    }), 400
+                    
+                return jsonify({
+                    'status': 'success',
+                    'user_id': user_id,
+                    'employee_id': emp_res['data'].get('ROWID')
+                }), 201
+                
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -254,15 +651,51 @@ def handler(request):
         except Exception as e:
             logger.error(f'CloudScale init failed in handler: {e}')
 
+    def _normalize_path(raw_path: str) -> str:
+        """Strip Catalyst function prefixes so Flask sees '/session/login' etc.
+
+        Catalyst often calls functions at:
+          /server/<function_name>/<your_route>
+          /app/server/<function_name>/<your_route>
+        """
+        path = raw_path or '/'
+
+        def _strip_server_prefix(p: str) -> str:
+            # /server/<fn>/... -> /...
+            parts = p.split('/')
+            # ['', 'server', '<fn>', ...]
+            if len(parts) >= 3 and parts[1] == 'server':
+                remainder = '/' + '/'.join(parts[3:]) if len(parts) > 3 else '/'
+                return remainder or '/'
+            return p
+
+        if path.startswith('/app/server/'):
+            return _strip_server_prefix(path[len('/app'):])
+        if path.startswith('/server/'):
+            return _strip_server_prefix(path)
+        return path
+
+    normalized_path = _normalize_path(getattr(request, 'path', '/') or '/')
+
     # Preferred path: if request already has a WSGI environ, dispatch directly.
     if hasattr(request, 'environ'):
         try:
-            with flask_app.request_context(request.environ):
+            environ = dict(request.environ)
+            environ['PATH_INFO'] = _normalize_path(environ.get('PATH_INFO', normalized_path) or normalized_path)
+            with flask_app.request_context(environ):
                 return flask_app.full_dispatch_request()
         except Exception as e:
             logger.exception(f'Request handling error (environ dispatch): {e}')
             from flask import make_response, jsonify
-            return make_response(jsonify({'status': 'error', 'message': 'Internal server error'}), 500)
+            from core.error_tracking import get_request_id, record_application_error
+            request_id = get_request_id()
+            record_application_error(e, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error')
+            return make_response(jsonify({
+                'status': 'error',
+                'message': 'Internal server error',
+                'error_code': 'INTERNAL_SERVER_ERROR',
+                'request_id': request_id,
+            }), 500)
 
     # Normalize body extraction across Catalyst request object variants.
     body_bytes = b''
@@ -290,6 +723,14 @@ def handler(request):
     if body_source in (None, b'', ''):
         for attr in ('body', 'data', 'raw_body', 'content', 'payload'):
             if not hasattr(request, attr):
+                continue
+            try:
+                candidate = getattr(request, attr)
+                candidate = candidate() if callable(candidate) else candidate
+                if candidate not in (None, b'', ''):
+                    body_source = candidate
+                    break
+            except Exception:
                 continue
 
     if body_source in (None, b'', ''):
@@ -347,12 +788,19 @@ def handler(request):
             body_bytes = b''
 
     # Use Flask test client to handle the request
+    try:
+        headers = dict(request.headers)
+    except Exception:
+        headers = {}
+
+    content_type = getattr(request, 'content_type', None) or headers.get('Content-Type')
+
     with flask_app.test_request_context(
-        path=request.path,
-        method=request.method,
-        headers=dict(request.headers),
+        path=normalized_path,
+        method=getattr(request, 'method', 'GET'),
+        headers=headers,
         data=body_bytes,
-        content_type=request.content_type
+        content_type=content_type
     ):
         try:
             # Dispatch the request through Flask
@@ -361,7 +809,15 @@ def handler(request):
         except Exception as e:
             logger.exception(f'Request handling error: {e}')
             from flask import make_response, jsonify
-            return make_response(jsonify({'status': 'error', 'message': 'Internal server error'}), 500)
+            from core.error_tracking import get_request_id, record_application_error
+            request_id = get_request_id()
+            record_application_error(e, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error')
+            return make_response(jsonify({
+                'status': 'error',
+                'message': 'Internal server error',
+                'error_code': 'INTERNAL_SERVER_ERROR',
+                'request_id': request_id,
+            }), 500)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

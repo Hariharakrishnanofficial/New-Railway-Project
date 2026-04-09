@@ -2,13 +2,13 @@
 	"info": {
 		"_postman_id": "smart-railway-api-v2",
 		"name": "Smart Railway Ticketing System API",
-		"description": "Complete REST API collection for Smart Railway Ticketing System v2.0\n\nBase URL: {{baseUrl}}\nAuthentication: Bearer Token (JWT)\n\n## Setup Instructions:\n1. Set `baseUrl` variable to your server URL\n2. Run 'Auth > Login' to get token\n3. Token is auto-saved to `authToken` variable\n4. All authenticated requests use this token automatically",
+		"description": "Complete REST API collection for Smart Railway Ticketing System v2.0\n\nBase URL: {{baseUrl}}\nAuthentication: Session-based (HttpOnly cookies) or Bearer Token (JWT)\n\n## Setup Instructions:\n1. Set `baseUrl` variable to your server URL\n2. For passengers: Run 'Session Auth > Passenger Login'\n3. For employees: Run 'Session Auth > Employee Login'\n4. Session ID and CSRF token are auto-saved\n5. All authenticated requests use session cookies automatically\n\n## Session Variables:\n- sessionId: Current session ID\n- csrfToken: CSRF token for state-changing requests\n- employeeId: Current employee ID (for employee sessions)\n- invitationId: Last created invitation ID\n- invitationToken: Invitation token for registration",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:9000",
+			"value": "http://localhost:3000/server/smart_railway_app_function",
 			"type": "string"
 		},
 		{
@@ -53,6 +53,46 @@
 		},
 		{
 			"key": "pnr",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "sessionId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "csrfToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "employeeId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "invitationId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "invitationToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "registrationEmail",
+			"value": "newuser@example.com",
+			"type": "string"
+		},
+		{
+			"key": "registrationOtp",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "sessionSuffix",
 			"value": "",
 			"type": "string"
 		}
@@ -109,8 +149,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/register",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "register"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
 						},
 						"description": "Register a new user account.\n\n**Rate Limit:** 10 requests/hour"
 					},
@@ -121,8 +166,13 @@
 								"method": "POST",
 								"url": {
 									"raw": "{{baseUrl}}/auth/register",
-									"host": ["{{baseUrl}}"],
-									"path": ["auth", "register"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"auth",
+										"register"
+									]
 								}
 							},
 							"status": "Created",
@@ -177,8 +227,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/login",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "login"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
 						},
 						"description": "Login with email and password.\n\n**Rate Limit:** 10 requests/15 minutes"
 					},
@@ -234,8 +289,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/login",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "login"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
 						},
 						"description": "Login as admin user for admin operations."
 					},
@@ -248,8 +308,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/auth/validate",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "validate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"validate"
+							]
 						},
 						"description": "Validate current JWT token and return user data."
 					},
@@ -296,8 +361,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/refresh",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "refresh"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh"
+							]
 						},
 						"description": "Get new access token using refresh token."
 					},
@@ -327,8 +397,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/profile",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "profile"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"profile"
+							]
 						},
 						"description": "Update current user's profile."
 					},
@@ -358,8 +433,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/change-password",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "change-password"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"change-password"
+							]
 						},
 						"description": "Change current user's password."
 					},
@@ -383,8 +463,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/auth/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "logout"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
 						},
 						"description": "Logout user (client should discard tokens)."
 					},
@@ -402,6 +487,751 @@
 			"description": "Authentication endpoints for user registration, login, and session management."
 		},
 		{
+			"name": "01A. Session Auth",
+			"item": [
+				{
+					"name": "OTP Register - Initiate",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success' && jsonData.data && jsonData.data.email) {",
+									"    pm.collectionVariables.set('registrationEmail', jsonData.data.email);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"John Doe\",\n    \"email\": \"{{registrationEmail}}\",\n    \"password\": \"SecurePass123!\",\n    \"phoneNumber\": \"+91-9876543210\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/register/initiate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"register",
+								"initiate"
+							]
+						},
+						"description": "Start registration by sending OTP to email (no session required)."
+					},
+					"response": []
+				},
+				{
+					"name": "OTP Register - Verify",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success' && jsonData.data) {",
+									"    if (jsonData.data.csrfToken) pm.collectionVariables.set('csrfToken', jsonData.data.csrfToken);",
+									"    var u = jsonData.data.user;",
+									"    if (u && u.id) {",
+									"        if (u.type === 'employee') pm.collectionVariables.set('employeeId', u.id);",
+									"        else pm.collectionVariables.set('userId', u.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{registrationEmail}}\",\n    \"otp\": \"{{registrationOtp}}\",\n    \"fullName\": \"John Doe\",\n    \"password\": \"SecurePass123!\",\n    \"phoneNumber\": \"+91-9876543210\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/register/verify",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"register",
+								"verify"
+							]
+						},
+						"description": "Verify OTP and create account + session cookie.\n\nNote: server requires fullName/password again (stateless verification)."
+					},
+					"response": []
+				},
+				{
+					"name": "OTP Register - Resend OTP",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{registrationEmail}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/register/resend-otp",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"register",
+								"resend-otp"
+							]
+						},
+						"description": "Resend OTP for a pending registration (no session required)."
+					},
+					"response": []
+				},
+				{
+					"name": "Passenger Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success') {",
+									"    if (jsonData.data && jsonData.data.csrfToken) pm.collectionVariables.set('csrfToken', jsonData.data.csrfToken);",
+									"    if (jsonData.data && jsonData.data.user && jsonData.data.user.id) pm.collectionVariables.set('userId', jsonData.data.user.id);",
+									"    pm.test('Login successful', function() {",
+									"        pm.expect(jsonData.status).to.eql('success');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"passenger@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"login"
+							]
+						},
+						"description": "Login as passenger user. Sets HttpOnly session cookie automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Employee Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success') {",
+									"    if (jsonData.data && jsonData.data.csrfToken) pm.collectionVariables.set('csrfToken', jsonData.data.csrfToken);",
+									"    if (jsonData.data && jsonData.data.employee && jsonData.data.employee.id) pm.collectionVariables.set('employeeId', jsonData.data.employee.id);",
+									"    pm.test('Employee login successful', function() {",
+									"        pm.expect(jsonData.status).to.eql('success');",
+									"        pm.expect(jsonData.data.user.type).to.eql('employee');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@railway.com\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/employee/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"employee",
+								"login"
+							]
+						},
+						"description": "Login as employee/admin. Sets HttpOnly session cookie automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success' && jsonData.data) {",
+									"    if (jsonData.data.csrfToken) pm.collectionVariables.set('csrfToken', jsonData.data.csrfToken);",
+									"    var t = jsonData.data.type;",
+									"    var u = jsonData.data.user || jsonData.data.employee;",
+									"    if (u && u.id) {",
+									"        if (t === 'employee') pm.collectionVariables.set('employeeId', u.id);",
+									"        else pm.collectionVariables.set('userId', u.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/session/validate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"validate"
+							]
+						},
+						"description": "Validate current session and return user/employee data."
+					},
+					"response": []
+				},
+				{
+					"name": "Get CSRF Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success' && jsonData.data && jsonData.data.csrfToken) {",
+									"    pm.collectionVariables.set('csrfToken', jsonData.data.csrfToken);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/session/csrf-token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"csrf-token"
+							]
+						},
+						"description": "Fetch CSRF token for current session."
+					},
+					"response": []
+				},
+				{
+					"name": "Regenerate CSRF Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.status === 'success' && jsonData.data && jsonData.data.csrfToken) {",
+									"    pm.collectionVariables.set('csrfToken', jsonData.data.csrfToken);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/session/csrf-token/regenerate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"csrf-token",
+								"regenerate"
+							]
+						},
+						"description": "Regenerate CSRF token for current session."
+					},
+					"response": []
+				},
+				{
+					"name": "List Sessions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/session/sessions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"sessions"
+							]
+						},
+						"description": "List all active sessions for the current user."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Session (by suffix)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/session/sessions/{{sessionSuffix}}/revoke",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"sessions",
+								"{{sessionSuffix}}",
+								"revoke"
+							]
+						},
+						"description": "Revoke another session by its suffix (last 8 characters shown by List Sessions)."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke All Sessions (except current)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/session/sessions/revoke-all",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"sessions",
+								"revoke-all"
+							]
+						},
+						"description": "Revoke all sessions except the current one."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"John D. Doe\",\n    \"phoneNumber\": \"+91-9876543211\",\n    \"dateOfBirth\": \"1990-05-15\",\n    \"address\": \"456 New St, Delhi\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/profile",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"profile"
+							]
+						},
+						"description": "Update the current user's profile (session required)."
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"currentPassword\": \"SecurePass123!\",\n    \"newPassword\": \"NewSecurePass456!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/session/change-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"change-password"
+							]
+						},
+						"description": "Change password for current session user (revokes other sessions)."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/session/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"session",
+								"logout"
+							]
+						},
+						"description": "Logout and destroy session. Clears session cookie."
+					},
+					"response": []
+				}
+			],
+			"description": "Session-based authentication endpoints using HttpOnly cookies (plus OTP registration)."
+		},
+		{
+			"name": "02A. Employees",
+			"item": [
+				{
+					"name": "Send Invitation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.status === 'success') {",
+									"    pm.collectionVariables.set('invitationId', jsonData.data.invitation_id);",
+									"    pm.collectionVariables.set('invitationToken', jsonData.data.registration_link.split('invitation=')[1]);",
+									"    pm.test('Invitation sent', function() {",
+									"        pm.expect(jsonData.status).to.eql('success');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"employee@example.com\",\n    \"role\": \"Employee\",\n    \"department\": \"Operations\",\n    \"designation\": \"Station Master\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/invite",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"invite"
+							]
+						},
+						"description": "Send employee invitation email (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "List Invitations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/invitations?limit=50",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"invitations"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "List all employee invitations (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Invitation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/invitations/{{invitationId}}/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"invitations",
+								"{{invitationId}}",
+								"refresh"
+							]
+						},
+						"description": "Refresh invitation expiry (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Reinvite Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/invitations/{{invitationId}}/reinvite",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"invitations",
+								"{{invitationId}}",
+								"reinvite"
+							]
+						},
+						"description": "Resend invitation email (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Employees",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees?limit=100",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "List all employees (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Employee by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/{{employeeId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"{{employeeId}}"
+							]
+						},
+						"description": "Get employee details (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Employee",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"full_name\": \"Updated Name\",\n    \"department\": \"New Department\",\n    \"designation\": \"New Position\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/{{employeeId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"{{employeeId}}"
+							]
+						},
+						"description": "Update employee details (Admin only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-CSRF-Token",
+								"value": "{{csrfToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/employees/{{employeeId}}/deactivate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"employees",
+								"{{employeeId}}",
+								"deactivate"
+							]
+						},
+						"description": "Deactivate employee account (Admin only)."
+					},
+					"response": []
+				}
+			],
+			"description": "Employee management endpoints for admin users."
+		},
+		{
 			"name": "02. Users",
 			"item": [
 				{
@@ -411,8 +1241,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/users?limit=100&offset=0",
-							"host": ["{{baseUrl}}"],
-							"path": ["users"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							],
 							"query": [
 								{
 									"key": "limit",
@@ -443,8 +1277,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Get a specific user by ID."
 					},
@@ -488,8 +1327,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
 						},
 						"description": "Create a new user (Admin only)."
 					},
@@ -519,8 +1362,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Update a user (Admin only)."
 					},
@@ -550,8 +1398,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}/status",
-							"host": ["{{baseUrl}}"],
-							"path": ["users", "{{userId}}", "status"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}",
+								"status"
+							]
 						},
 						"description": "Update user account status (Admin only).\n\n**Allowed Values:** Active, Blocked, Suspended"
 					},
@@ -572,8 +1426,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["users", "{{userId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
 						},
 						"description": "Delete a user (Admin only)."
 					},
@@ -603,8 +1462,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/stations",
-							"host": ["{{baseUrl}}"],
-							"path": ["stations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stations"
+							]
 						},
 						"description": "Get all stations (cached 24 hours)."
 					},
@@ -628,8 +1491,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/stations/{{stationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["stations", "{{stationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stations",
+								"{{stationId}}"
+							]
 						},
 						"description": "Get a specific station by ID."
 					},
@@ -673,8 +1541,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/stations",
-							"host": ["{{baseUrl}}"],
-							"path": ["stations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stations"
+							]
 						},
 						"description": "Create a new station (Admin only)."
 					},
@@ -704,8 +1576,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/stations/{{stationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["stations", "{{stationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stations",
+								"{{stationId}}"
+							]
 						},
 						"description": "Update a station (Admin only)."
 					},
@@ -726,8 +1603,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/stations/{{stationId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["stations", "{{stationId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stations",
+								"{{stationId}}"
+							]
 						},
 						"description": "Delete a station (Admin only)."
 					},
@@ -757,8 +1639,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/trains?limit=100&offset=0&active=true",
-							"host": ["{{baseUrl}}"],
-							"path": ["trains"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trains"
+							],
 							"query": [
 								{
 									"key": "limit",
@@ -806,8 +1692,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/trains/{{trainId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["trains", "{{trainId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trains",
+								"{{trainId}}"
+							]
 						},
 						"description": "Get a specific train by ID."
 					},
@@ -851,8 +1742,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/trains",
-							"host": ["{{baseUrl}}"],
-							"path": ["trains"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trains"
+							]
 						},
 						"description": "Create a new train (Admin only)."
 					},
@@ -882,8 +1777,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/trains/{{trainId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["trains", "{{trainId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trains",
+								"{{trainId}}"
+							]
 						},
 						"description": "Update a train (Admin only)."
 					},
@@ -904,8 +1804,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/trains/{{trainId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["trains", "{{trainId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"trains",
+								"{{trainId}}"
+							]
 						},
 						"description": "Delete a train (Admin only)."
 					},
@@ -935,8 +1840,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/discover-stations",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "discover-stations"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"discover-stations"
+							]
 						},
 						"description": "Get station ROWID mapping for CloudScale foreign key references."
 					},
@@ -960,8 +1870,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/list",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "list"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"list"
+							]
 						},
 						"description": "Get all trains from CloudScale database."
 					},
@@ -985,8 +1900,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/get/12951",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "get", "12951"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"get",
+								"12951"
+							]
 						},
 						"description": "Get a specific train by ROWID (17-digit) or Train_Number."
 					},
@@ -1037,8 +1958,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/create",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "create"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"create"
+							]
 						},
 						"description": "Create a new train with automatic station code to ROWID conversion. Required fields: Train_Number, Train_Name, From_Station (code or ROWID), To_Station (code or ROWID), Departure_Time, Arrival_Time."
 					},
@@ -1073,8 +1999,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/create-sample",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "create-sample"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"create-sample"
+							]
 						},
 						"description": "Create sample trains (12951 Mumbai Rajdhani and 12002 Shatabdi) with automatic ROWID discovery."
 					},
@@ -1104,8 +2035,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/update/{{trainId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "update", "{{trainId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"update",
+								"{{trainId}}"
+							]
 						},
 						"description": "Update train fields by ROWID. Supports station code to ROWID conversion for From_Station and To_Station."
 					},
@@ -1126,8 +2063,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/delete/{{trainId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "delete", "{{trainId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"delete",
+								"{{trainId}}"
+							]
 						},
 						"description": "Delete a train by ROWID (17-digit CloudScale ID)."
 					},
@@ -1155,8 +2098,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-crud/delete-all-test",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-crud", "delete-all-test"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-crud",
+								"delete-all-test"
+							]
 						},
 						"description": "Bulk delete all test trains (Train_Number starting with MIN, TEST, or FLD)."
 					},
@@ -1186,8 +2134,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-routes",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-routes"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-routes"
+							]
 						},
 						"description": "Get all train routes."
 					},
@@ -1211,8 +2163,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-routes/{{routeId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-routes", "{{routeId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-routes",
+								"{{routeId}}"
+							]
 						},
 						"description": "Get a route by ID with all stops."
 					},
@@ -1256,8 +2213,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/train-routes",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-routes"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-routes"
+							]
 						},
 						"description": "Create a new route (Admin only).\n\n**Lookup:** trainId -> Trains.ROWID"
 					},
@@ -1281,8 +2242,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/train-routes/{{routeId}}/stops",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-routes", "{{routeId}}", "stops"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-routes",
+								"{{routeId}}",
+								"stops"
+							]
 						},
 						"description": "Get all stops for a route."
 					},
@@ -1312,8 +2279,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/train-routes/{{routeId}}/stops",
-							"host": ["{{baseUrl}}"],
-							"path": ["train-routes", "{{routeId}}", "stops"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"train-routes",
+								"{{routeId}}",
+								"stops"
+							]
 						},
 						"description": "Add a stop to a route (Admin only).\n\n**Lookups:**\n- stationId -> Stations.ROWID\n- routeId (path) -> Train_Routes.ROWID"
 					},
@@ -1340,8 +2313,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/bookings?limit=100&offset=0",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings"
+							],
 							"query": [
 								{
 									"key": "limit",
@@ -1372,8 +2349,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/bookings/{{bookingId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings", "{{bookingId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings",
+								"{{bookingId}}"
+							]
 						},
 						"description": "Get a booking by ID with passengers."
 					},
@@ -1397,8 +2379,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/bookings/pnr/{{pnr}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings", "pnr", "{{pnr}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings",
+								"pnr",
+								"{{pnr}}"
+							]
 						},
 						"description": "Lookup booking by PNR number (public)."
 					},
@@ -1447,8 +2435,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/bookings",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings"
+							]
 						},
 						"description": "Create a new booking.\n\n**Lookup:** trainId -> Trains.ROWID"
 					},
@@ -1469,8 +2461,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/bookings/{{bookingId}}/pay",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings", "{{bookingId}}", "pay"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings",
+								"{{bookingId}}",
+								"pay"
+							]
 						},
 						"description": "Mark booking as paid."
 					},
@@ -1500,8 +2498,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/bookings/{{bookingId}}/cancel",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings", "{{bookingId}}", "cancel"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings",
+								"{{bookingId}}",
+								"cancel"
+							]
 						},
 						"description": "Cancel a booking."
 					},
@@ -1522,8 +2526,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/bookings/{{bookingId}}/confirm",
-							"host": ["{{baseUrl}}"],
-							"path": ["bookings", "{{bookingId}}", "confirm"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings",
+								"{{bookingId}}",
+								"confirm"
+							]
 						},
 						"description": "Confirm a booking (Admin only)."
 					},
@@ -1544,8 +2554,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}/bookings",
-							"host": ["{{baseUrl}}"],
-							"path": ["users", "{{userId}}", "bookings"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}",
+								"bookings"
+							]
 						},
 						"description": "Get all bookings for a user.\n\n**Lookup:** userId -> Users.ROWID"
 					},
@@ -1575,8 +2591,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/fares",
-							"host": ["{{baseUrl}}"],
-							"path": ["fares"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"fares"
+							]
 						},
 						"description": "Get all fare rules."
 					},
@@ -1609,8 +2629,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/fares/calculate",
-							"host": ["{{baseUrl}}"],
-							"path": ["fares", "calculate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"fares",
+								"calculate"
+							]
 						},
 						"description": "Calculate fare for a journey."
 					},
@@ -1640,8 +2665,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/fares",
-							"host": ["{{baseUrl}}"],
-							"path": ["fares"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"fares"
+							]
 						},
 						"description": "Create a new fare rule (Admin only)."
 					},
@@ -1671,8 +2700,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/inventory?trainId={{trainId}}&journeyDate=2026-04-15",
-							"host": ["{{baseUrl}}"],
-							"path": ["inventory"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"inventory"
+							],
 							"query": [
 								{
 									"key": "trainId",
@@ -1712,8 +2745,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/inventory",
-							"host": ["{{baseUrl}}"],
-							"path": ["inventory"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"inventory"
+							]
 						},
 						"description": "Create inventory record (Admin only).\n\n**Lookup:** trainId -> Trains.ROWID"
 					},
@@ -1743,8 +2780,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/quotas",
-							"host": ["{{baseUrl}}"],
-							"path": ["quotas"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quotas"
+							]
 						},
 						"description": "Get all quota allocations."
 					},
@@ -1768,8 +2809,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/quotas/types",
-							"host": ["{{baseUrl}}"],
-							"path": ["quotas", "types"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quotas",
+								"types"
+							]
 						},
 						"description": "Get all quota type definitions."
 					},
@@ -1799,8 +2845,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/quotas",
-							"host": ["{{baseUrl}}"],
-							"path": ["quotas"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quotas"
+							]
 						},
 						"description": "Create quota allocation (Admin only).\n\n**Lookup:** trainId -> Trains.ROWID"
 					},
@@ -1830,8 +2880,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/announcements",
-							"host": ["{{baseUrl}}"],
-							"path": ["announcements"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"announcements"
+							]
 						},
 						"description": "Get all announcements."
 					},
@@ -1855,8 +2909,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/announcements/active",
-							"host": ["{{baseUrl}}"],
-							"path": ["announcements", "active"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"announcements",
+								"active"
+							]
 						},
 						"description": "Get only active announcements."
 					},
@@ -1878,8 +2937,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/announcements",
-							"host": ["{{baseUrl}}"],
-							"path": ["announcements"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"announcements"
+							]
 						},
 						"description": "Create announcement (Admin only).\n\n**Types:** info, warning, error, success\n**Priorities:** low, normal, high"
 					},
@@ -1909,8 +2972,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/settings",
-							"host": ["{{baseUrl}}"],
-							"path": ["settings"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"settings"
+							]
 						},
 						"description": "Get all system settings."
 					},
@@ -1934,8 +3001,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/settings/key/booking_advance_days",
-							"host": ["{{baseUrl}}"],
-							"path": ["settings", "key", "booking_advance_days"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"settings",
+								"key",
+								"booking_advance_days"
+							]
 						},
 						"description": "Get a specific setting by key."
 					},
@@ -1965,8 +3038,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/settings",
-							"host": ["{{baseUrl}}"],
-							"path": ["settings"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"settings"
+							]
 						},
 						"description": "Create a system setting (Admin only)."
 					},
@@ -1993,8 +3070,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/admin/logs?limit=100&offset=0",
-							"host": ["{{baseUrl}}"],
-							"path": ["admin", "logs"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"logs"
+							],
 							"query": [
 								{
 									"key": "limit",
@@ -2044,8 +3126,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/admin/logs",
-							"host": ["{{baseUrl}}"],
-							"path": ["admin", "logs"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"logs"
+							]
 						},
 						"description": "Create an audit log entry (Admin only)."
 					},
@@ -2072,8 +3159,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/admin/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["admin", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"users"
+							]
 						},
 						"description": "Get all admin users (Admin only)."
 					},
@@ -2103,8 +3195,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/admin/users",
-							"host": ["{{baseUrl}}"],
-							"path": ["admin", "users"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"users"
+							]
 						},
 						"description": "Create a new admin user (Admin only)."
 					},
@@ -2125,8 +3222,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/admin/users/{{userId}}/promote",
-							"host": ["{{baseUrl}}"],
-							"path": ["admin", "users", "{{userId}}", "promote"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"users",
+								"{{userId}}",
+								"promote"
+							]
 						},
 						"description": "Promote a regular user to admin (Admin only).\n\n**Lookup:** userId -> Users.ROWID"
 					},
@@ -2147,8 +3251,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/admin/users/{{userId}}/demote",
-							"host": ["{{baseUrl}}"],
-							"path": ["admin", "users", "{{userId}}", "demote"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"users",
+								"{{userId}}",
+								"demote"
+							]
 						},
 						"description": "Demote an admin to regular user (Admin only).\n\n**Lookup:** userId -> Users.ROWID"
 					},
@@ -2178,8 +3289,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/modules?limit=100&offset=0&active=true",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules"
+							],
 							"query": [
 								{
 									"key": "limit",
@@ -2232,8 +3347,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/modules/{{moduleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules", "{{moduleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules",
+								"{{moduleId}}"
+							]
 						},
 						"description": "Get a specific module by ID."
 					},
@@ -2277,8 +3397,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/modules",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules"
+							]
 						},
 						"description": "Create a new module (Admin only).\n\n**Rate Limit:** 50 requests/hour\n\n**Lookup:** parentModuleId -> Module_Master.ROWID (optional)"
 					},
@@ -2315,8 +3439,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/modules/{{moduleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules", "{{moduleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules",
+								"{{moduleId}}"
+							]
 						},
 						"description": "Update a module (Admin only)."
 					},
@@ -2337,8 +3466,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/modules/{{moduleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules", "{{moduleId}}"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules",
+								"{{moduleId}}"
+							]
 						},
 						"description": "Delete a module (Admin only).\n\n**Note:** Cannot delete if module has children."
 					},
@@ -2366,8 +3500,14 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/modules/{{moduleId}}/toggle-status",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules", "{{moduleId}}", "toggle-status"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules",
+								"{{moduleId}}",
+								"toggle-status"
+							]
 						},
 						"description": "Toggle module active status (Admin only)."
 					},
@@ -2391,8 +3531,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/modules/hierarchy",
-							"host": ["{{baseUrl}}"],
-							"path": ["modules", "hierarchy"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"modules",
+								"hierarchy"
+							]
 						},
 						"description": "Get modules in nested hierarchical structure."
 					},
@@ -2422,8 +3567,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/",
-							"host": ["{{baseUrl}}"],
-							"path": [""]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								""
+							]
 						},
 						"description": "API root endpoint with version info."
 					},
@@ -2447,8 +3596,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/health",
-							"host": ["{{baseUrl}}"],
-							"path": ["health"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
 						},
 						"description": "Health check endpoint with system status."
 					},
@@ -2472,8 +3625,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/debug/columns",
-							"host": ["{{baseUrl}}"],
-							"path": ["debug", "columns"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"debug",
+								"columns"
+							]
 						},
 						"description": "Debug endpoint to list Users table columns."
 					},
@@ -2489,8 +3647,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/debug/config",
-							"host": ["{{baseUrl}}"],
-							"path": ["debug", "config"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"debug",
+								"config"
+							]
 						},
 						"description": "Debug endpoint to show configuration."
 					},

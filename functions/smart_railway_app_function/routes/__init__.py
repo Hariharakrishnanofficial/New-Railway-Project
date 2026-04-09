@@ -128,3 +128,11 @@ def register_blueprints(app):
     # OTP-based Registration routes (email verification)
     from routes.otp_register import otp_register_bp
     app.register_blueprint(otp_register_bp)
+    
+    # Employee Invitation routes
+    from routes.employee_invitation_routes import employee_invitation_bp
+    app.register_blueprint(employee_invitation_bp)
+    
+    # Admin Employee Management routes (CRUD for Employee table)
+    from routes.admin_employees import admin_employees_bp
+    app.register_blueprint(admin_employees_bp)

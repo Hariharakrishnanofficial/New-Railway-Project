@@ -21,3 +21,4 @@ urllib3==2.6.3
 Werkzeug==3.1.6
 zcatalyst_sdk==1.2.0
 zipp==3.23.0
+argon2-cffi==23.1.0

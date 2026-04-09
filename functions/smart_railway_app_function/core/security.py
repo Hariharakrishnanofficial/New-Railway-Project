@@ -2,7 +2,7 @@
 Core Security Module - Smart Railway Ticketing System
 
 Provides:
-  - Argon2 password hashing (primary) with bcrypt fallback
+  - Argon2 password hashing (Primary and Mandatory)
   - JWT token generation and validation
   - require_auth / require_admin decorators
   - Rate limiter for sensitive endpoints
@@ -25,6 +25,39 @@ from flask import request, jsonify, g
 
 logger = logging.getLogger(__name__)
 
+# Try to import Argon2 (Mandatory)
+try:
+    from argon2 import PasswordHasher
+    from argon2.exceptions import VerifyMismatchError
+    # Tunable Argon2 parameters for constrained serverless environments.
+    # Defaults are secure while avoiding high-memory failures on small runtimes.
+    _argon2_time_cost = int(os.getenv("ARGON2_TIME_COST", "2"))
+    _argon2_memory_cost = int(os.getenv("ARGON2_MEMORY_COST_KIB", "19456"))  # 19 MiB
+    _argon2_parallelism = int(os.getenv("ARGON2_PARALLELISM", "2"))
+
+    _ph = PasswordHasher(
+        time_cost=_argon2_time_cost,
+        memory_cost=_argon2_memory_cost,
+        parallelism=_argon2_parallelism,
+    )
+    _ph_low_memory = PasswordHasher(
+        time_cost=2,
+        memory_cost=8192,   # 8 MiB emergency Argon2 fallback
+        parallelism=1,
+    )
+    ARGON2_AVAILABLE = True
+except ImportError:
+    ARGON2_AVAILABLE = False
+    logger.error("argon2-cffi not available! Security critical failure.")
+
+# Try bcrypt for legacy support ONLY
+try:
+    import bcrypt
+    BCRYPT_AVAILABLE = True
+except ImportError:
+    BCRYPT_AVAILABLE = False
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  CONFIGURATION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -46,44 +79,28 @@ _rate_store: Dict[str, list] = defaultdict(list)
 _rate_lock = threading.Lock()
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  PASSWORD HASHING (Argon2 primary, bcrypt fallback)
+#  PASSWORD HASHING (Argon2 primary)
 # ══════════════════════════════════════════════════════════════════════════════
-
-# Try to import Argon2 (preferred)
-try:
-    from argon2 import PasswordHasher
-    from argon2.exceptions import VerifyMismatchError
-    _ph = PasswordHasher()
-    ARGON2_AVAILABLE = True
-except ImportError:
-    ARGON2_AVAILABLE = False
-    logger.warning("argon2-cffi not available")
-
-# Try bcrypt as fallback
-try:
-    import bcrypt
-    BCRYPT_AVAILABLE = True
-except ImportError:
-    BCRYPT_AVAILABLE = False
-    logger.warning("bcrypt not available, using SHA-256 fallback")
-
 
 def hash_password(plain: str) -> str:
     """
-    Hash a plaintext password.
-
-    Priority:
-    1. Argon2 (most secure, memory-hard)
-    2. bcrypt (cost factor 12)
-    3. SHA-256 (fallback for environments without crypto libs)
+    Hash a plaintext password using Argon2-id.
+    Argon2 is the mandatory algorithm for this system.
     """
     if ARGON2_AVAILABLE:
-        return _ph.hash(plain)
-    elif BCRYPT_AVAILABLE:
-        return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt(12)).decode("utf-8")
-    else:
-        logger.warning("Using SHA-256 fallback for password hashing")
-        return hashlib.sha256(plain.encode()).hexdigest()
+        try:
+            return _ph.hash(plain)
+        except Exception as exc:
+            # Serverless runtimes can throw memory allocation errors for stronger params.
+            logger.warning(f"Primary Argon2 hashing failed, retrying with low-memory params: {exc}")
+            try:
+                return _ph_low_memory.hash(plain)
+            except Exception as low_exc:
+                logger.exception(f"Argon2 low-memory fallback also failed: {low_exc}")
+    
+    # Critical fallback to SHA-256 only if Argon2 is missing (emergency only)
+    logger.critical("ARGON2 NOT AVAILABLE - Falling back to SHA-256 (INSECURE)")
+    return hashlib.sha256(plain.encode()).hexdigest()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -91,9 +108,9 @@ def verify_password(plain: str, hashed: str) -> bool:
     Verify password against stored hash.
 
     Supports:
-    - Argon2 hashes ($argon2id$...)
-    - bcrypt hashes ($2b$..., $2a$...)
-    - Legacy SHA-256 hashes
+    - Argon2 hashes ($argon2id$...) [Primary]
+    - bcrypt hashes ($2b$..., $2a$...) [Legacy Transition]
+    - Legacy SHA-256 hashes [Legacy Transition]
     """
     if not plain or not hashed:
         return False
@@ -108,10 +125,10 @@ def verify_password(plain: str, hashed: str) -> bool:
                 except VerifyMismatchError:
                     return False
             else:
-                logger.warning("Argon2 hash found but argon2-cffi not available")
+                logger.error("Argon2 hash found but argon2-cffi not available")
                 return False
 
-        # bcrypt hashes start with $2b$ or $2a$
+        # bcrypt hashes (transition only)
         elif hashed.startswith("$2"):
             if BCRYPT_AVAILABLE:
                 return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
@@ -119,7 +136,7 @@ def verify_password(plain: str, hashed: str) -> bool:
                 logger.warning("bcrypt hash found but bcrypt not available")
                 return False
 
-        # SHA-256 fallback (64 hex chars)
+        # SHA-256 transition (64 hex chars)
         elif len(hashed) == 64:
             return hashlib.sha256(plain.encode()).hexdigest() == hashed
 
@@ -327,6 +344,61 @@ def require_admin(f):
         return f(*args, **kwargs)
 
     return decorated
+
+
+def require_role(roles):
+    """
+    Decorator: Requires user role in allowed roles.
+    Uses JWT claims and preserves admin email/domain override.
+    """
+    normalized_roles = {str(role).lower() for role in (roles or [])}
+
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            token = _extract_bearer(request)
+
+            if not token:
+                return jsonify({
+                    "status": "error",
+                    "message": "Authentication required"
+                }), 401
+
+            payload = decode_token(token)
+
+            if not payload:
+                return jsonify({
+                    "status": "error",
+                    "message": "Invalid or expired token"
+                }), 401
+
+            email = payload.get("email", "").lower()
+            role = payload.get("role", "User")
+
+            is_admin_email = (
+                email == ADMIN_EMAIL.lower() or
+                email.endswith("@" + ADMIN_DOMAIN)
+            )
+            is_admin_role = role.lower() == "admin"
+            is_admin = is_admin_email or is_admin_role
+
+            if normalized_roles:
+                allowed = role.lower() in normalized_roles or (is_admin and "admin" in normalized_roles)
+                if not allowed:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Access denied"
+                    }), 403
+
+            g.user_id = payload.get("sub", "")
+            g.user_email = email
+            g.user_role = "Admin" if is_admin else role
+
+            return f(*args, **kwargs)
+
+        return decorated
+
+    return decorator
 
 
 def get_current_user_id() -> str:

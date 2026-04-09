@@ -3,6 +3,9 @@
 
 **Welcome!** This guide will get you up and running in 15 minutes.
 
+⚠️ **IMPORTANT**: Before running the application, complete the database migration for Sessions table.  
+See: `docs/CRITICAL_DATABASE_MIGRATION_REQUIRED.md`
+
 ---
 
 ## What You Need
@@ -11,6 +14,25 @@
 - ✅ Node.js 14+
 - ✅ Zoho Catalyst CLI
 - ✅ Git
+- ⚠️ **CloudScale Console Access** (for database migration)
+
+---
+
+## Pre-Flight Check (Required)
+
+### ⚠️ Database Migration (One-Time Setup)
+
+**Before running catalyst serve for employee/admin features:**
+
+1. Open https://console.catalyst.zoho.com
+2. Navigate to **DataStore → Tables → Sessions**
+3. Check if **User_ID** column has a Foreign Key constraint to Users table
+4. If yes: **Remove the FK constraint** and save
+5. Why: Employee sessions need to reference Employees table, not Users table
+
+**Detailed Instructions**: See `docs/CRITICAL_DATABASE_MIGRATION_REQUIRED.md`
+
+**Skip this if**: You're only testing passenger (user) login, not employee/admin login.
 
 ---
 
@@ -101,8 +123,50 @@ Your application now has:
 ### Learn More
 
 - **Full Documentation:** [README.md](README.md)
+- **Database Schema:** [architecture/CLOUDSCALE_DATABASE_SCHEMA_V2.md](architecture/CLOUDSCALE_DATABASE_SCHEMA_V2.md)
+- **User/Employee Architecture:** [architecture/USER_EMPLOYEE_RESTRUCTURE_PLAN.md](architecture/USER_EMPLOYEE_RESTRUCTURE_PLAN.md)
 - **Security Guide:** [security/SECURITY_IMPLEMENTATION_SUMMARY.md](security/SECURITY_IMPLEMENTATION_SUMMARY.md)
 - **Setup Reference:** [setup/COMPLETE_SETUP_REFERENCE.md](setup/COMPLETE_SETUP_REFERENCE.md)
+
+### Test Authentication
+
+**Passenger Login** (uses Users table):
+```bash
+# Register passenger
+POST /session/register
+{
+  "email": "passenger@railway.com",
+  "password": "Pass@123",
+  "fullName": "John Passenger"
+}
+
+# Login
+POST /session/login
+{
+  "email": "passenger@railway.com",
+  "password": "Pass@123"
+}
+```
+
+**Employee/Admin Login** (uses Employees table):
+```bash
+# Create employee (admin only)
+POST /data-seed/admin-employee
+{
+  "email": "admin@railway.com",
+  "password": "Admin@123",
+  "full_name": "System Admin",
+  "department": "IT",
+  "designation": "System Administrator"
+}
+
+# Login
+POST /session/employee/login
+{
+  "email": "admin@railway.com",
+  "password": "Admin@123"
+}
+```
 
 ### Deploy to Production
 
@@ -132,6 +196,16 @@ catalyst deploy
 
 ## 🆘 Troubleshooting
 
+### Employee/Admin login shows 500 error
+
+**Symptom**: `POST /session/employee/login` returns 500 Internal Server Error
+
+**Cause**: Sessions table has FK constraint on User_ID → Users.ROWID
+
+**Fix**: Remove FK constraint in CloudScale console
+
+**See**: [CRITICAL_DATABASE_MIGRATION_REQUIRED.md](CRITICAL_DATABASE_MIGRATION_REQUIRED.md)
+
 ### Server won't start
 
 **Check:**
@@ -145,6 +219,17 @@ catalyst deploy
 - CORS_ALLOWED_ORIGINS includes your frontend URL
 - Cookies enabled in browser
 - SESSION_SECRET is set (32+ characters)
+
+### TLS Certificate Error
+
+**Symptom**: "Could not find a suitable TLS CA certificate bundle"
+
+**Fix**:
+```bash
+catalyst login
+# Then restart server
+catalyst serve
+```
 
 ### Security errors
 

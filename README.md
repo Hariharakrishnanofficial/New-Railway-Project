@@ -20,18 +20,21 @@
 
 ## 🎯 Features
 
-### For Users
+### For Passengers (Users)
 - 🎫 **Train Search & Booking** - Find and book train tickets
-- 👤 **User Authentication** - Secure login with email verification
-- 📧 **Email OTP Verification** - Verify your account with one-time passwords
+- 👤 **User Authentication** - Secure login with email/password
+- 📧 **Email OTP Verification** - Verify account during registration
 - 📱 **Responsive Design** - Works on desktop and mobile
-- 🔐 **Secure Sessions** - Your data is protected with encryption
+- 🔐 **Secure Sessions** - Data protected with HMAC-signed cookies
 
-### For Administrators
+### For Employees & Admins
+- 🔑 **Separate Employee Login** - Dedicated authentication for staff
+- 👥 **Employee Invitation System** - Admins invite staff via email
 - 📊 **Session Management** - View and manage user sessions
-- 🔍 **Audit Logging** - Track all security events
+- 🔍 **Audit Logging** - Track all security events with full audit trail
 - 🛡️ **Security Monitoring** - Real-time security alerts
 - 📈 **Analytics Dashboard** - Usage statistics and insights
+- ⚙️ **Role-Based Access** - Admin vs Employee permissions
 
 ---
 
@@ -152,9 +155,11 @@ This application implements industry-standard security practices:
 | Topic | Link | Time |
 |-------|------|------|
 | **Quick Start** | [00_START_HERE.md](docs/00_START_HERE.md) | 5 min |
+| **⚠️ Database Migration** | [CRITICAL_DATABASE_MIGRATION_REQUIRED.md](docs/CRITICAL_DATABASE_MIGRATION_REQUIRED.md) | 10 min |
 | **Security Overview** | [Security Summary](docs/security/SECURITY_IMPLEMENTATION_SUMMARY.md) | 10 min |
 | **Full Setup** | [Complete Setup](docs/setup/COMPLETE_SETUP_REFERENCE.md) | 30 min |
-| **Architecture** | [Session Architecture](docs/architecture/SESSION_ARCHITECTURE_GUIDE.md) | 15 min |
+| **Database Schema** | [CloudScale Schema](docs/architecture/CLOUDSCALE_DATABASE_SCHEMA_V2.md) | 20 min |
+| **User/Employee Architecture** | [Architecture Plan](docs/architecture/USER_EMPLOYEE_RESTRUCTURE_PLAN.md) | 15 min |
 | **Deployment** | [Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md) | 20 min |
 
 ### Documentation Structure

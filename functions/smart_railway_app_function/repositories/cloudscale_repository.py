@@ -224,7 +224,15 @@ class CloudScaleRepository:
         _sanitize_tls_bundle_env()
         app = get_catalyst_app()
         if not app:
-            raise RuntimeError("Catalyst app not initialized. Call init_catalyst() first.")
+            # Check for local CLI login context if app is not initialized
+            try:
+                import zcatalyst_sdk
+                # Use empty config to avoid "headers empty" error in local CLI
+                app = zcatalyst_sdk.initialize({})
+            except ImportError:
+                raise RuntimeError("Catalyst app not initialized. Call init_catalyst() first.")
+            except Exception:
+                raise RuntimeError("Catalyst app not initialized. Call init_catalyst() first.")
         return app.zcql()
 
     def _get_datastore(self):
@@ -232,7 +240,14 @@ class CloudScaleRepository:
         _sanitize_tls_bundle_env()
         app = get_catalyst_app()
         if not app:
-            raise RuntimeError("Catalyst app not initialized. Call init_catalyst() first.")
+            try:
+                import zcatalyst_sdk
+                # Use empty config to avoid "headers empty" error in local CLI
+                app = zcatalyst_sdk.initialize({})
+            except ImportError:
+                raise RuntimeError("Catalyst app not initialized. Call init_catalyst() first.")
+            except Exception:
+                raise RuntimeError("Catalyst app not initialized. Call init_catalyst() first.")
         return app.datastore()
 
     def _resolve_table(self, table_name: str) -> str:
@@ -308,6 +323,9 @@ class CloudScaleRepository:
         except Exception as exc:
             err_text = str(exc)
             logger.error(f"Create record error in {table_name}: {err_text}")
+            
+            # Log the data being inserted for debugging
+            logger.debug(f"Insert data for {table_name}: {data}")
 
             # Fallback for environments where datastore row API is blocked.
             if "method not allowed" in err_text.lower():
@@ -341,9 +359,10 @@ class CloudScaleRepository:
                                 if isinstance(row, dict):
                                     row_id = row.get("ROWID")
                     elif actual_table == "Sessions" and data.get("Session_ID"):
-                        # Session_ID is BIGINT, no quotes needed
+                        # Use CriteriaBuilder for safe Session_ID query (BIGINT column)
                         session_id_val = data["Session_ID"]
-                        lookup_query = f"SELECT ROWID FROM {actual_table} WHERE Session_ID = {session_id_val} ORDER BY ROWID DESC LIMIT 1"
+                        criteria = CriteriaBuilder().id_eq("Session_ID", session_id_val).build()
+                        lookup_query = f"SELECT ROWID FROM {actual_table} WHERE {criteria} ORDER BY ROWID DESC LIMIT 1"
                         lookup_result = zcql.execute_query(lookup_query)
                         if isinstance(lookup_result, list) and lookup_result:
                             first = lookup_result[0]
@@ -401,6 +420,16 @@ class CloudScaleRepository:
                     f"User_Agent, CSRF_Token, CREATEDTIME, Last_Accessed_At, Expires_At, Is_Active "
                     f"FROM {actual_table}"
                 )
+            elif actual_table == 'Employees':
+                # Employee authentication - only use columns that exist in actual table
+                # Based on schema: ROWID, Employee_ID, Full_Name, Email, Password, Phone_Number,
+                # Account_Status, Aadhar_Verified, Date_of_Birth, ID_Proof_Type, ID_Proof_Number,
+                # Address, Last_Login, Role, Department, Designation, Is_Active, Joined_At
+                query = (
+                    f"SELECT ROWID, Employee_ID, Full_Name, Email, Password, Role, "
+                    f"Department, Designation, Account_Status, Joined_At, Is_Active, Phone_Number "
+                    f"FROM {actual_table}"
+                )
             else:
                 # For other tables, use ROWID + a safe field to avoid SELECT *
                 query = f"SELECT ROWID FROM {actual_table}"
@@ -450,6 +479,12 @@ class CloudScaleRepository:
                 query = (
                     f"SELECT ROWID, Session_ID, User_ID, User_Email, User_Role, IP_Address, "
                     f"User_Agent, CSRF_Token, Created_At, Last_Accessed_At, Expires_At, Is_Active "
+                    f"FROM {actual_table} WHERE ROWID = {record_id}"
+                )
+            elif actual_table == 'Employees':
+                query = (
+                    f"SELECT ROWID, Employee_ID, Full_Name, Email, Password, Role, "
+                    f"Department, Designation, Account_Status, Joined_At, Is_Active, Phone_Number "
                     f"FROM {actual_table} WHERE ROWID = {record_id}"
                 )
             else:
@@ -668,6 +703,130 @@ class CloudScaleRepository:
         criteria = CriteriaBuilder().eq("Email", email.lower()).build()
         records = self.get_records(TABLES['users'], criteria=criteria, limit=1)
         return records[0] if records else None
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  EMPLOYEE QUERIES (Staff: Admin/Employee roles)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def get_employee_by_email(self, email: str) -> Optional[Dict]:
+        """Find employee by email address."""
+        email_normalized = email.lower().strip()
+        logger.info(f"[REPO] get_employee_by_email called with: '{email_normalized}'")
+        criteria = CriteriaBuilder().eq("Email", email_normalized).build()
+        logger.info(f"[REPO] Built criteria: {criteria}")
+        records = self.get_records(TABLES['employees'], criteria=criteria, limit=1)
+        logger.info(f"[REPO] Query returned {len(records)} records")
+        if records:
+            logger.info(f"[REPO] Found employee email: {records[0].get('Email')}")
+        return records[0] if records else None
+
+    def get_employee_by_id(self, employee_row_id: str) -> Optional[Dict]:
+        """Find employee by ROWID."""
+        result = self.get_record_by_id(TABLES['employees'], employee_row_id)
+        if result.get("success") and result.get("data"):
+            return result["data"]
+        return None
+
+    def get_employee_by_employee_id(self, employee_id: str) -> Optional[Dict]:
+        """Find employee by Employee_ID (e.g., 'EMP001', 'ADM001')."""
+        criteria = CriteriaBuilder().eq("Employee_ID", employee_id.upper()).build()
+        records = self.get_records(TABLES['employees'], criteria=criteria, limit=1)
+        return records[0] if records else None
+
+    def get_employee_cached(self, employee_row_id: str, ttl: int = TTL_USER) -> Optional[Dict]:
+        """Employee record - cached 15 min."""
+        key = f"employee:{employee_row_id}"
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
+        employee = self.get_employee_by_id(employee_row_id)
+        if employee:
+            cache.set(key, employee, ttl=ttl)
+            return employee
+        return None
+
+    def invalidate_employee_cache(self, employee_row_id: str):
+        """Invalidate employee cache."""
+        cache.delete(f"employee:{employee_row_id}")
+
+    def create_employee(self, employee_data: Dict) -> Dict[str, Any]:
+        """
+        Create a new employee record.
+        
+        Required fields:
+        - Employee_ID: Unique staff ID (e.g., 'EMP001')
+        - Full_Name: Employee name
+        - Email: Unique email address
+        - Password: Bcrypt hashed password
+        - Role: 'Admin' or 'Employee'
+        - Invited_By: ROWID of inviting admin
+        - Account_Status: 'Active', 'Inactive', 'Suspended'
+        """
+        # Ensure email is lowercase
+        if 'Email' in employee_data:
+            employee_data['Email'] = employee_data['Email'].lower()
+        return self.create_record(TABLES['employees'], employee_data)
+
+    def update_employee(self, employee_row_id: str, update_data: Dict) -> Dict[str, Any]:
+        """Update an employee record."""
+        # Ensure email is lowercase if being updated
+        if 'Email' in update_data:
+            update_data['Email'] = update_data['Email'].lower()
+        result = self.update_record(TABLES['employees'], employee_row_id, update_data)
+        if result.get("success"):
+            self.invalidate_employee_cache(employee_row_id)
+        return result
+
+    def delete_employee(self, employee_row_id: str) -> Dict[str, Any]:
+        """Delete an employee record."""
+        result = self.delete_record(TABLES['employees'], employee_row_id)
+        if result.get("success"):
+            self.invalidate_employee_cache(employee_row_id)
+        return result
+
+    def get_all_employees(
+        self,
+        role: str = None,
+        department: str = None,
+        status: str = "Active",
+        limit: int = 100
+    ) -> List[Dict]:
+        """Get all employees with optional filters."""
+        cb = CriteriaBuilder()
+        if status:
+            cb.eq("Account_Status", status)
+        if role:
+            cb.eq("Role", role)
+        if department:
+            cb.eq("Department", department)
+        criteria = cb.build()
+        return self.get_records(TABLES['employees'], criteria=criteria, limit=limit)
+
+    def get_next_employee_id(self, role: str = "Employee") -> str:
+        """
+        Generate next sequential Employee_ID.
+        Format: EMP001, EMP002... for Employee; ADM001, ADM002... for Admin
+        """
+        prefix = "ADM" if role == "Admin" else "EMP"
+        # Get all employees with this prefix
+        criteria = CriteriaBuilder().like("Employee_ID", f"{prefix}%").build()
+        employees = self.get_records(TABLES['employees'], criteria=criteria, limit=1000)
+        
+        if not employees:
+            return f"{prefix}001"
+        
+        # Find the highest number
+        max_num = 0
+        for emp in employees:
+            emp_id = emp.get("Employee_ID", "")
+            if emp_id.startswith(prefix):
+                try:
+                    num = int(emp_id[len(prefix):])
+                    max_num = max(max_num, num)
+                except ValueError:
+                    continue
+        
+        return f"{prefix}{str(max_num + 1).zfill(3)}"
 
     def get_station_by_code(self, code: str) -> Optional[Dict]:
         """Find station by code."""

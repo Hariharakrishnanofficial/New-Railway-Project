@@ -19,6 +19,32 @@ from config import TABLES
 from core.security import hash_password
 
 logger = logging.getLogger(__name__)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CLOUDSCALE CONNECTION HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _is_backend_setup_error(value) -> bool:
+    """Check if error indicates backend setup issue."""
+    if not value:
+        return False
+    error_str = str(value).lower()
+    return any(keyword in error_str for keyword in [
+        'invalid oauth', 'oauth error', 'authentication failed',
+        'tls bundle', 'certificate', 'ssl error', 'connection refused'
+    ])
+
+
+def _probe_cloudscale_connection() -> tuple:
+    """Probe CloudScale once to distinguish setup issues from auth failures."""
+    try:
+        probe = cloudscale_repo.execute_query("SELECT ROWID FROM Users LIMIT 1")
+        if probe.get('success'):
+            return True, ''
+        return False, str(probe.get('error', 'CloudScale query failed'))
+    except Exception as exc:
+        return False, str(exc)
 data_seed_bp = Blueprint('data_seed', __name__)
 
 # Sample data generators
@@ -926,5 +952,371 @@ def clear_all_sample_data():
         return jsonify({
             'status': 'error',
             'message': 'Failed to clear sample data',
+            'error': str(e)
+        }), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CREATE USER (PASSENGER) - For ticket booking customers
+# ══════════════════════════════════════════════════════════════════════════════
+
+@data_seed_bp.route('/data-seed/user', methods=['POST'])
+def create_user():
+    """
+    Create a user (passenger) for testing.
+    Users table is ONLY for passengers who book train tickets.
+    
+    POST /data-seed/user
+    {
+        "email": "passenger@example.com",
+        "password": "Pass@123",
+        "full_name": "John Doe",
+        "phone_number": "+91-9876543210"
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        
+        email = (data.get('email') or 'passenger@example.com').strip().lower()
+        password = data.get('password') or 'Pass@123'
+        full_name = data.get('full_name') or 'Test Passenger'
+        phone_number = data.get('phone_number') or '+91-9999999999'
+        
+        logger.info(f"Creating user (passenger): {email}")
+        
+        # Hash the password
+        password_hash = hash_password(password)
+        
+        # Check if user already exists
+        check_query = f"SELECT ROWID, Email FROM {TABLES['users']} WHERE Email = '{email}'"
+        existing = cloudscale_repo.execute_query(check_query)
+        
+        if existing.get('success') and existing.get('data', {}).get('data'):
+            return jsonify({
+                'status': 'error',
+                'message': f'User with email {email} already exists',
+                'existing_user_id': existing['data']['data'][0].get('ROWID')
+            }), 409
+        
+        # Create Users record (passenger) - based on actual schema
+        user_data = {
+            'Full_Name': full_name,
+            'Email': email,  # Mandatory, Unique
+            'Password': password_hash,
+            'Phone_Number': phone_number,
+            'Role': 'USER',
+            'Account_Status': 'Active',
+            'Is_Verified': True,
+        }
+        
+        result = cloudscale_repo.create_record(TABLES['users'], user_data)
+        
+        if result.get('success'):
+            logger.info(f"User (passenger) created: {email}")
+            return jsonify({
+                'status': 'success',
+                'message': 'User (passenger) created successfully',
+                'data': {
+                    'user_rowid': result.get('data', {}).get('ROWID'),
+                    'email': email,
+                    'full_name': full_name,
+                    'role': 'USER',
+                    'note': 'Login with /session/login endpoint (passenger login)'
+                }
+            }), 201
+        else:
+            logger.error(f"Failed to create user: {result.get('error')}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to create user',
+                'error': result.get('error')
+            }), 500
+            
+    except Exception as e:
+        logger.exception(f'Create user error: {e}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to create user',
+            'error': str(e)
+        }), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CREATE ADMIN EMPLOYEE - For railway staff/admin
+# ══════════════════════════════════════════════════════════════════════════════
+
+@data_seed_bp.route('/data-seed/admin-employee', methods=['POST'])
+def create_admin_employee():
+    """
+    Create an admin employee for testing.
+    
+    Creates ONLY an Employees record (NOT Users - Users is for passengers only).
+    Employee authentication checks ONLY the Employees table.
+    
+    POST /data-seed/admin-employee
+    {
+        "email": "admin@railway.com",
+        "password": "Admin@123",
+        "full_name": "System Admin",
+        "department": "Administration",
+        "designation": "System Administrator",
+        "phone_number": "+91-9876543210"
+    }
+    """
+    # Log request details for debugging
+    logger.info(f"Data-seed request from {request.remote_addr}, method: {request.method}")
+    
+    # Check CloudScale connection first
+    cloudscale_ok, cloudscale_error = _probe_cloudscale_connection()
+    if not cloudscale_ok and _is_backend_setup_error(cloudscale_error):
+        logger.error(f"CloudScale backend setup error: {cloudscale_error}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Backend setup error',
+            'details': cloudscale_error,
+        }), 503
+    
+    if not cloudscale_ok:
+        logger.warning(f"CloudScale connection issue (continuing): {cloudscale_error}")
+    
+    try:
+        data = request.get_json() or {}
+        
+        # Required fields
+        email = (data.get('email') or 'admin@railway.com').strip().lower()
+        password = data.get('password') or 'Admin@123'
+        full_name = data.get('full_name') or 'System Administrator'  # Mandatory
+        department = data.get('department') or 'Administration'  # Mandatory
+        designation = data.get('designation') or 'System Administrator'  # Mandatory
+        
+        # Optional fields
+        phone_number = data.get('phone_number') or ''
+        
+        logger.info(f"Creating admin employee: {email}")
+        
+        # Hash the password
+        password_hash = hash_password(password)
+        
+        # Step 1: Check if Employees record already exists
+        check_emp_query = f"SELECT ROWID, Email FROM {TABLES['employees']} WHERE Email = '{email}'"
+        existing_emp = cloudscale_repo.execute_query(check_emp_query)
+        
+        if existing_emp.get('success') and existing_emp.get('data', {}).get('data'):
+            logger.info(f"Employees record already exists for {email}")
+            return jsonify({
+                'status': 'error',
+                'message': f'Employee with email {email} already exists',
+                'existing_employee_id': existing_emp['data']['data'][0].get('ROWID')
+            }), 409
+        
+        # Step 2: Generate Employee_ID - count existing admins
+        count_query = f"SELECT COUNT(ROWID) as cnt FROM {TABLES['employees']} WHERE Role = 'Admin'"
+        count_result = cloudscale_repo.execute_query(count_query)
+        admin_count = 1
+        if count_result.get('success') and count_result.get('data', {}).get('data'):
+            admin_count = int(count_result['data']['data'][0].get('cnt', 0)) + 1
+        employee_id = f"ADM{admin_count:03d}"
+        
+        # Step 3: Create Employees record with ALL mandatory fields
+        # Mandatory: Full_Name, Employee_ID, Role, Department, Designation
+        admin_data = {
+            'Employee_ID': employee_id,  # Mandatory
+            'Full_Name': full_name,  # Mandatory
+            'Email': email,  # Unique
+            'Password': password_hash,
+            'Role': 'Admin',  # Mandatory
+            'Department': department,  # Mandatory
+            'Designation': designation,  # Mandatory
+            'Account_Status': 'Active',
+            'Is_Active': True,
+            'Phone_Number': phone_number,
+        }
+        
+        emp_result = cloudscale_repo.create_record(TABLES['employees'], admin_data)
+        
+        if emp_result.get('success'):
+            logger.info(f"Admin employee created: {email} with ID {employee_id}")
+            return jsonify({
+                'status': 'success',
+                'message': 'Admin employee created successfully',
+                'data': {
+                    'employee_rowid': emp_result.get('data', {}).get('ROWID'),
+                    'employee_id': employee_id,
+                    'email': email,
+                    'full_name': full_name,
+                    'role': 'Admin',
+                    'department': department,
+                    'designation': designation,
+                    'note': 'Login with /session/employee/login endpoint'
+                }
+            }), 201
+        else:
+            logger.error(f"Failed to create Employees record: {emp_result.get('error')}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to create employee',
+                'error': emp_result.get('error')
+            }), 500
+            
+    except Exception as e:
+        logger.exception(f'Create admin employee error: {e}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to create admin employee',
+            'error': str(e)
+        }), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  DEBUG ENDPOINT - Check Employee Records
+# ══════════════════════════════════════════════════════════════════════════════
+
+@data_seed_bp.route('/data-seed/debug-employees', methods=['GET'])
+def debug_employees():
+    """
+    Debug endpoint to check employee records in the database.
+    Lists all employees and their key fields.
+    """
+    try:
+        # Get all employees
+        query = f"SELECT ROWID, Employee_ID, Full_Name, Email, Role, Account_Status, Password FROM {TABLES['employees']} LIMIT 50"
+        result = cloudscale_repo.execute_query(query)
+        
+        employees = []
+        if result.get('success') and result.get('data', {}).get('data'):
+            for emp in result['data']['data']:
+                employees.append({
+                    'rowid': emp.get('ROWID'),
+                    'employee_id': emp.get('Employee_ID'),
+                    'full_name': emp.get('Full_Name'),
+                    'email': emp.get('Email'),
+                    'role': emp.get('Role'),
+                    'account_status': emp.get('Account_Status'),
+                    'has_password': bool(emp.get('Password')),
+                    'password_length': len(emp.get('Password', '')) if emp.get('Password') else 0,
+                })
+        
+        # Also check Users table for admin/employee roles
+        users_query = f"SELECT ROWID, Full_Name, Email, Role, Account_Status FROM {TABLES['users']} WHERE Role IN ('ADMIN', 'EMPLOYEE') LIMIT 50"
+        users_result = cloudscale_repo.execute_query(users_query)
+        
+        admin_users = []
+        if users_result.get('success') and users_result.get('data', {}).get('data'):
+            for user in users_result['data']['data']:
+                admin_users.append({
+                    'rowid': user.get('ROWID'),
+                    'full_name': user.get('Full_Name'),
+                    'email': user.get('Email'),
+                    'role': user.get('Role'),
+                    'account_status': user.get('Account_Status'),
+                })
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'employees_table': employees,
+                'employees_count': len(employees),
+                'users_with_admin_role': admin_users,
+                'users_count': len(admin_users),
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.exception(f'Debug employees error: {e}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Debug failed',
+            'error': str(e)
+        }), 500
+
+
+@data_seed_bp.route('/data-seed/check-employee/<email>', methods=['GET'])
+def check_employee_by_email(email):
+    """
+    Check if an employee exists by email.
+    """
+    try:
+        email_lower = email.lower().strip()
+        
+        # Check Employees table
+        employee = cloudscale_repo.get_employee_by_email(email_lower)
+        
+        # Check Users table
+        user = cloudscale_repo.get_user_by_email(email_lower)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'email': email_lower,
+                'employee_exists': employee is not None,
+                'employee_data': {
+                    'rowid': employee.get('ROWID') if employee else None,
+                    'employee_id': employee.get('Employee_ID') if employee else None,
+                    'role': employee.get('Role') if employee else None,
+                    'account_status': employee.get('Account_Status') if employee else None,
+                    'has_password': bool(employee.get('Password')) if employee else False,
+                } if employee else None,
+                'user_exists': user is not None,
+                'user_data': {
+                    'rowid': user.get('ROWID') if user else None,
+                    'role': user.get('Role') if user else None,
+                    'account_status': user.get('Account_Status') if user else None,
+                } if user else None,
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.exception(f'Check employee error: {e}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Check failed',
+            'error': str(e)
+        }), 500
+
+
+@data_seed_bp.route('/data-seed/debug-query/<email>', methods=['GET'])
+def debug_query(email):
+    """
+    Debug endpoint to test direct query vs CriteriaBuilder.
+    """
+    try:
+        from repositories.cloudscale_repository import CriteriaBuilder
+        
+        email_lower = email.lower().strip()
+        
+        # Method 1: Raw query (works in debug-employees)
+        raw_query = f"SELECT ROWID, Employee_ID, Full_Name, Email, Password, Role, Account_Status FROM {TABLES['employees']} WHERE Email = '{email_lower}'"
+        raw_result = cloudscale_repo.execute_query(raw_query)
+        
+        # Method 2: CriteriaBuilder + get_records
+        criteria = CriteriaBuilder().eq("Email", email_lower).build()
+        criteria_query = f"SELECT ROWID, Employee_ID, Full_Name, Email, Password, Role, Department, Designation, Account_Status, Joined_At, Is_Active, Phone_Number FROM {TABLES['employees']} WHERE {criteria} ORDER BY ROWID DESC LIMIT 1"
+        criteria_result = cloudscale_repo.execute_query(criteria_query)
+        
+        # Method 3: get_employee_by_email
+        employee = cloudscale_repo.get_employee_by_email(email_lower)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'email_searched': email_lower,
+                'raw_query': raw_query,
+                'raw_result_success': raw_result.get('success'),
+                'raw_result_count': len(raw_result.get('data', {}).get('data', [])) if raw_result.get('success') else 0,
+                'raw_result_data': raw_result.get('data', {}).get('data', []) if raw_result.get('success') else None,
+                'criteria_built': criteria,
+                'criteria_query': criteria_query,
+                'criteria_result_success': criteria_result.get('success'),
+                'criteria_result_count': len(criteria_result.get('data', {}).get('data', [])) if criteria_result.get('success') else 0,
+                'get_employee_by_email_result': employee is not None,
+                'employee_email': employee.get('Email') if employee else None,
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.exception(f'Debug query error: {e}')
+        return jsonify({
+            'status': 'error',
+            'message': 'Debug query failed',
             'error': str(e)
         }), 500

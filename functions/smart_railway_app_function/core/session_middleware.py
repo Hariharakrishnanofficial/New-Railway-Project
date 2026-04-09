@@ -28,6 +28,7 @@ from config import (
 from services.session_service import (
     validate_session,
     validate_csrf_token,
+    extract_raw_session_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,8 @@ def require_session(f: Callable) -> Callable:
             return response
         
         # CSRF validation for state-changing requests
+        raw_session_id = (session_data or {}).get("session_id") or extract_raw_session_id(session_id)
+
         if _is_state_changing_request():
             csrf_token = _get_csrf_token_from_request()
             
@@ -135,7 +138,7 @@ def require_session(f: Callable) -> Callable:
                     "message": "CSRF token required for this request"
                 }), 403
             
-            if not validate_csrf_token(session_id, csrf_token):
+            if not validate_csrf_token(raw_session_id, csrf_token):
                 logger.warning(f"CSRF validation failed for session {session_id[:8]}...")
                 return jsonify({
                     "status": "error",
@@ -144,10 +147,11 @@ def require_session(f: Callable) -> Callable:
                 }), 403
         
         # Set request context
-        g.session_id = session_id
-        g.user_id = session_data.get("user_id", "")
+        g.session_id = raw_session_id or ""
+        g.user_id = str(session_data.get("user_id", ""))
         g.user_email = session_data.get("user_email", "")
         g.user_role = session_data.get("user_role", "User")
+        g.user_type = session_data.get("user_type", "user")  # 'user' or 'employee'
         g.csrf_token = session_data.get("csrf_token", "")
         
         return f(*args, **kwargs)
@@ -197,10 +201,13 @@ def require_session_admin(f: Callable) -> Callable:
             return response
         
         # CSRF validation for state-changing requests
+        raw_session_id = (session_data or {}).get("session_id") or extract_raw_session_id(session_id)
+
         if _is_state_changing_request():
             csrf_token = _get_csrf_token_from_request()
             
-            if not csrf_token or not validate_csrf_token(session_id, csrf_token):
+            if not csrf_token or not validate_csrf_token(raw_session_id, csrf_token):
+                logger.warning(f"CSRF validation failed - token present: {bool(csrf_token)}, session: {session_id[:10]}...")
                 return jsonify({
                     "status": "error",
                     "code": "CSRF_INVALID",
@@ -226,10 +233,81 @@ def require_session_admin(f: Callable) -> Callable:
             }), 403
         
         # Set request context
-        g.session_id = session_id
-        g.user_id = session_data.get("user_id", "")
+        g.session_id = raw_session_id or ""
+        g.user_id = str(session_data.get("user_id", ""))
         g.user_email = email
         g.user_role = "Admin"
+        g.user_type = session_data.get("user_type", "employee")  # Admin must be employee
+        g.csrf_token = session_data.get("csrf_token", "")
+        
+        return f(*args, **kwargs)
+    
+    return decorated
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  REQUIRE EMPLOYEE SESSION DECORATOR
+# ══════════════════════════════════════════════════════════════════════════════
+
+def require_session_employee(f: Callable) -> Callable:
+    """
+    Decorator: Requires valid employee session (any role: Admin or Employee).
+    
+    This is for endpoints that any employee can access (not just admins).
+    Used for employee self-service features like password change.
+    
+    Sets: g.session_id, g.user_id, g.user_email, g.user_role, g.user_type
+    """
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        session_id = _get_session_id_from_request()
+        
+        if not session_id:
+            return jsonify({
+                "status": "error",
+                "code": "SESSION_REQUIRED",
+                "message": "Session required. Please login."
+            }), 401
+        
+        # Validate session
+        session_data = validate_session(session_id)
+        
+        if not session_data:
+            return jsonify({
+                "status": "error",
+                "code": "SESSION_INVALID",
+                "message": "Invalid or expired session. Please login again."
+            }), 401
+        
+        # Check user type - must be employee
+        user_type = (session_data.get("user_type") or "").lower()
+        
+        if user_type != "employee":
+            return jsonify({
+                "status": "error",
+                "code": "EMPLOYEE_REQUIRED",
+                "message": "Employee access required"
+            }), 403
+        
+        # CSRF validation for state-changing requests
+        raw_session_id = (session_data or {}).get("session_id") or extract_raw_session_id(session_id)
+
+        if _is_state_changing_request():
+            csrf_token = _get_csrf_token_from_request()
+            
+            if not csrf_token or not validate_csrf_token(raw_session_id, csrf_token):
+                return jsonify({
+                    "status": "error",
+                    "code": "CSRF_INVALID",
+                    "message": "Invalid or missing CSRF token"
+                }), 403
+        
+        # Set request context
+        g.session_id = raw_session_id or ""
+        g.user_id = str(session_data.get("user_id", ""))
+        g.user_email = session_data.get("user_email", "")
+        g.user_role = session_data.get("user_role", "Employee")
+        g.user_type = "employee"
         g.csrf_token = session_data.get("csrf_token", "")
         
         return f(*args, **kwargs)
@@ -255,6 +333,7 @@ def optional_session(f: Callable) -> Callable:
         g.user_id = ""
         g.user_email = ""
         g.user_role = ""
+        g.user_type = ""
         g.csrf_token = ""
         
         # Try to validate session
@@ -264,10 +343,11 @@ def optional_session(f: Callable) -> Callable:
             session_data = validate_session(session_id)
             
             if session_data:
-                g.session_id = session_id
+                g.session_id = session_data.get("session_id") or extract_raw_session_id(session_id) or ""
                 g.user_id = session_data.get("user_id", "")
                 g.user_email = session_data.get("user_email", "")
                 g.user_role = session_data.get("user_role", "User")
+                g.user_type = session_data.get("user_type", "user")
                 g.csrf_token = session_data.get("csrf_token", "")
         
         return f(*args, **kwargs)
@@ -297,6 +377,11 @@ def get_current_user_email() -> str:
 def get_current_user_role() -> str:
     """Return current user role from request context."""
     return getattr(g, "user_role", "User") or "User"
+
+
+def get_current_user_type() -> str:
+    """Return current user type from request context ('user' or 'employee')."""
+    return getattr(g, "user_type", "user") or "user"
 
 
 def get_current_csrf_token() -> str:

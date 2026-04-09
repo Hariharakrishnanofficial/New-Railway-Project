@@ -119,6 +119,64 @@ def _clear_pending_registration(email: str) -> None:
 #  DEBUG: Test OTP system
 # ══════════════════════════════════════════════════════════════════════════════
 
+@otp_register_bp.route('/session/register/debug', methods=['GET'])
+def debug_registration():
+    """Debug endpoint to check registration state."""
+    email = request.args.get('email', '').strip().lower()
+    
+    if not email:
+        return jsonify({'status': 'error', 'message': 'Email parameter required'}), 400
+    
+    try:
+        debug_info = {
+            'email_config': {
+                'from_email': FROM_EMAIL,
+                'app_name': APP_NAME,
+                'catalyst_available': CATALYST_AVAILABLE
+            },
+            'otp_settings': {
+                'expiry_minutes': OTP_EXPIRY_MINUTES,
+                'max_attempts': OTP_MAX_ATTEMPTS,
+                'resend_cooldown': OTP_RESEND_COOLDOWN_SECONDS
+            },
+            'pending_registration': _get_pending_registration(email) is not None,
+            'user_exists': cloudscale_repo.get_user_by_email(email) is not None
+        }
+        
+        # Check recent OTP
+        from config import TABLES
+        query = f"""
+            SELECT Created_At, Attempts, Expires_At
+            FROM {TABLES.get('otp_tokens', 'OTP_Tokens')}
+            WHERE User_Email = '{email.replace("'", "''")}'
+            AND Purpose = 'registration'
+            ORDER BY Created_At DESC
+            LIMIT 1
+        """
+        
+        result = cloudscale_repo.execute_query(query)
+        if result.get('success') and result.get('data', {}).get('data'):
+            otp_record = result['data']['data'][0]
+            debug_info['latest_otp'] = {
+                'created_at': otp_record.get('Created_At'),
+                'attempts': otp_record.get('Attempts'),
+                'expires_at': otp_record.get('Expires_At')
+            }
+        else:
+            debug_info['latest_otp'] = None
+        
+        return jsonify({
+            'status': 'success',
+            'debug_info': debug_info
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Debug failed: {str(e)}'
+        }), 500
+
+
 @otp_register_bp.route('/session/register/test', methods=['GET'])
 def test_otp_system():
     """Debug endpoint to test OTP system components."""
@@ -171,13 +229,16 @@ def initiate_registration():
     """
     Step 1: Validate registration data and send OTP email.
     
+    Supports both regular registration and employee invitation registration.
+    
     Request:
         POST /session/register/initiate
         {
             "fullName": "John Doe",
             "email": "john@example.com",
             "password": "SecurePass123",
-            "phoneNumber": "+1234567890"  // optional
+            "phoneNumber": "+1234567890",  // optional
+            "invitationToken": "abc123..."  // optional - for employee registration
         }
     
     Response:
@@ -186,7 +247,8 @@ def initiate_registration():
             "message": "Verification code sent to your email",
             "data": {
                 "email": "john@example.com",
-                "expiresInMinutes": 15
+                "expiresInMinutes": 15,
+                "isEmployee": true  // if invitation token used
             }
         }
     """
@@ -204,6 +266,30 @@ def initiate_registration():
     email = (data.get('email') or data.get('Email') or '').strip().lower()
     password = data.get('password') or data.get('Password') or ''
     phone_number = (data.get('phoneNumber') or data.get('Phone_Number') or '').strip()
+    invitation_token = (data.get('invitationToken') or '').strip()
+    
+    # Check if this is an employee invitation registration
+    is_employee_registration = False
+    invitation_data = None
+    
+    if invitation_token:
+        from services.employee_invitation_service import verify_invitation_token
+        is_valid, invitation_data = verify_invitation_token(invitation_token)
+        
+        if not is_valid:
+            return jsonify({
+                'status': 'error', 
+                'message': 'Invalid or expired invitation link'
+            }), 400
+        
+        # Verify email matches invitation
+        if invitation_data['Email'] != email:
+            return jsonify({
+                'status': 'error',
+                'message': 'Email must match the invitation'
+            }), 400
+        
+        is_employee_registration = True
     
     # Validation
     if not full_name:
@@ -227,13 +313,12 @@ def initiate_registration():
         if existing:
             return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
         
-        # Store registration data temporarily
-        _store_pending_registration(email, {
-            'fullName': full_name,
-            'email': email,
-            'password': password,  # Will be hashed when verified
-            'phoneNumber': phone_number,
-        })
+        # NOTE: Do NOT store pending registration data in-memory.
+        # Catalyst functions can run on multiple instances / cold starts, so
+        # in-memory state is not reliable. The client must send the registration
+        # details again during OTP verification.
+        #
+        # (We still validate upfront and send the OTP here.)
         
         # Send OTP
         otp_result = send_registration_otp(email)
@@ -257,7 +342,8 @@ def initiate_registration():
             'message': 'Verification code sent to your email',
             'data': {
                 'email': email,
-                'expiresInMinutes': otp_result.get('expiresInMinutes', 15)
+                'expiresInMinutes': otp_result.get('expiresInMinutes', 15),
+                'isEmployee': is_employee_registration
             }
         }), 200
         
@@ -299,35 +385,91 @@ def verify_registration():
         return jsonify({}), 200
     
     data = _extract_payload()
+    logger.info(f"OTP verification request for email: {data.get('email', 'NOT_PROVIDED')}")
+    logger.debug(f"Request data keys: {list(data.keys()) if data else 'NO_DATA'}")
     
     if not data:
+        logger.warning("OTP verification failed: No data provided")
         return jsonify({'status': 'error', 'message': 'No data provided'}), 400
     
     email = (data.get('email') or data.get('Email') or '').strip().lower()
     otp = (data.get('otp') or data.get('OTP') or '').strip()
+    logger.debug(f"Extracted email: '{email}', OTP length: {len(otp) if otp else 0}")
     
     if not email:
+        logger.warning("OTP verification failed: Email is required")
         return jsonify({'status': 'error', 'message': 'Email is required'}), 400
     if not otp:
+        logger.warning(f"OTP verification failed for {email}: Verification code is required")
         return jsonify({'status': 'error', 'message': 'Verification code is required'}), 400
     if len(otp) != 6 or not otp.isdigit():
+        logger.warning(f"OTP verification failed for {email}: Invalid format - length={len(otp)}, isdigit={otp.isdigit()}")
         return jsonify({'status': 'error', 'message': 'Invalid verification code format'}), 400
     
     try:
         # Verify OTP
+        logger.info(f"Verifying OTP for {email}")
         otp_valid, otp_message = verify_otp(email, otp, 'registration')
         
         if not otp_valid:
-            return jsonify({'status': 'error', 'message': otp_message}), 400
+            logger.warning(f"OTP verification failed for {email}: {otp_message}")
+            # Check if it's an expiry message
+            if "expired" in otp_message.lower():
+                return jsonify({
+                    'status': 'error',
+                    'error_code': 'OTP_EXPIRED',
+                    'message': otp_message,
+                    'action_required': 'request_new_otp'
+                }), 400
+            elif "no valid otp" in otp_message.lower():
+                return jsonify({
+                    'status': 'error', 
+                    'error_code': 'NO_OTP_FOUND',
+                    'message': otp_message,
+                    'action_required': 'restart_registration'
+                }), 400
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'error_code': 'INVALID_OTP',
+                    'message': otp_message
+                }), 400
         
-        # Get pending registration data
-        pending_data = _get_pending_registration(email)
-        
-        if not pending_data:
+        # Get registration details.
+        # Prefer request payload (stateless), fallback to in-memory pending data for
+        # backwards compatibility in single-instance local dev.
+        logger.debug(f"OTP verified, resolving registration payload for {email}")
+
+        pending_data = {
+            'fullName': (data.get('fullName') or data.get('Full_Name') or data.get('full_name') or '').strip(),
+            'password': data.get('password') or data.get('Password') or '',
+            'phoneNumber': (data.get('phoneNumber') or data.get('Phone_Number') or data.get('phone_number') or '').strip(),
+            'invitationToken': (data.get('invitationToken') or data.get('invitation_token') or '').strip() or None,
+        }
+
+        if not pending_data.get('fullName') or not pending_data.get('password'):
+            fallback = _get_pending_registration(email)
+            if isinstance(fallback, dict):
+                pending_data = {**fallback, **{k: v for k, v in pending_data.items() if v}}
+
+        if not pending_data.get('fullName') or not pending_data.get('password'):
+            logger.warning(f"Registration payload missing for {email}")
             return jsonify({
                 'status': 'error',
-                'message': 'Registration session expired. Please start again.'
+                'error_code': 'SESSION_EXPIRED',
+                'message': 'Missing registration details for verification. Please restart registration and try again.',
+                'action_required': 'restart_registration'
             }), 400
+
+        # Defensive validation (client should already validate, but don't trust it).
+        if len(pending_data.get('fullName', '')) < 2:
+            return jsonify({'status': 'error', 'message': 'Full name must be at least 2 characters'}), 400
+        if len(pending_data.get('password', '')) < 8:
+            return jsonify({'status': 'error', 'message': 'Password must be at least 8 characters'}), 400
+
+        # Determine whether this is an employee registration.
+        is_employee = bool(pending_data.get('invitationToken'))
+        pending_data['isEmployee'] = is_employee
         
         # Check again if email exists (race condition protection)
         existing = cloudscale_repo.get_user_by_email(email)
@@ -335,49 +477,142 @@ def verify_registration():
             _clear_pending_registration(email)
             return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
         
-        # Create user with hashed password
+        # Determine role and type based on registration
+        is_employee = pending_data.get('isEmployee', False)
+        invitation_token = pending_data.get('invitationToken')
+        invitation_data = None
+        
+        # Re-verify invitation if this is employee registration
+        if is_employee and invitation_token:
+            from services.employee_invitation_service import verify_invitation_token
+            is_valid, invitation_data = verify_invitation_token(invitation_token)
+            
+            if not is_valid:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invitation link has expired or is invalid'
+                }), 400
+
+            # Verify email matches invitation
+            if str(invitation_data.get('Email', '')).strip().lower() != email:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Email must match the invitation'
+                }), 400
+        
+        # Hash password
         hashed_password = hash_password(pending_data['password'])
         
-        # Only use fields that exist in Users table schema
-        user_data = {
-            'Full_Name': pending_data['fullName'],
-            'Email': email,
-            'Password': hashed_password,
-            'Role': 'User',
-            'Account_Status': 'Active',
-        }
-        
-        if pending_data.get('phoneNumber'):
-            user_data['Phone_Number'] = pending_data['phoneNumber']
-        
-        result = cloudscale_repo.create_record(TABLES['users'], user_data)
-        
-        if not result.get('success'):
-            logger.error(f"User creation failed: {result.get('error')}")
-            return jsonify({
-                'status': 'error',
-                'message': 'Failed to create account'
-            }), 500
-        
-        user_id = result.get('data', {}).get('ROWID')
+        if is_employee:
+            # Create user + employee profile
+            from services.employee_service import create_employee
+            
+            role = invitation_data.get('Role', 'Employee') if invitation_data else 'Employee'
+            department = invitation_data.get('Department') if invitation_data else None
+            designation = invitation_data.get('Designation') if invitation_data else None
+            invited_by = invitation_data.get('Invited_By') if invitation_data else None
+            invitation_id = invitation_data.get('ROWID') if invitation_data else None
+
+            user_role = 'ADMIN' if str(role).lower() == 'admin' else 'EMPLOYEE'
+            user_type = 'employee'
+
+            user_data = {
+                'Full_Name': pending_data['fullName'],
+                'Email': email,
+                'Password': hashed_password,
+                'Role': user_role,
+                'Account_Status': 'Active',
+            }
+
+            if pending_data.get('phoneNumber'):
+                user_data['Phone_Number'] = pending_data['phoneNumber']
+
+            user_result = cloudscale_repo.create_record(TABLES['users'], user_data)
+            if not user_result.get('success'):
+                logger.error(f"User creation failed: {user_result.get('error')}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Failed to create user account'
+                }), 500
+
+            user_id = user_result.get('data', {}).get('ROWID')
+
+            employee_result = create_employee(
+                full_name=pending_data['fullName'],
+                email=email,
+                password=pending_data['password'],
+                role=role,
+                invited_by=str(invited_by) if invited_by else '1',
+                invitation_id=str(invitation_id) if invitation_id else None,
+                user_id=str(user_id),
+                department=department,
+                designation=designation,
+                phone_number=pending_data.get('phoneNumber'),
+            )
+            
+            if not employee_result.get('success'):
+                logger.error(f"Employee creation failed: {employee_result.get('error')}")
+                if user_id:
+                    cloudscale_repo.delete_record(TABLES['users'], str(user_id))
+                return jsonify({
+                    'status': 'error',
+                    'message': employee_result.get('error', 'Failed to create employee account')
+                }), 500
+
+            employee_row_id = employee_result.get('data', {}).get('row_id')
+
+            # Mark invitation as used
+            if invitation_token and employee_row_id:
+                from services.employee_invitation_service import mark_invitation_used
+                mark_invitation_used(invitation_token, employee_row_id)
+
+            # Use employee ROWID for employee sessions
+            user_id = employee_row_id
+        else:
+            # Create passenger (user) record
+            user_role = 'USER'
+            user_type = 'user'
+            
+            user_data = {
+                'Full_Name': pending_data['fullName'],
+                'Email': email,
+                'Password': hashed_password,
+                'Role': user_role,
+                'Account_Status': 'Active',
+            }
+            
+            if pending_data.get('phoneNumber'):
+                user_data['Phone_Number'] = pending_data['phoneNumber']
+            
+            result = cloudscale_repo.create_record(TABLES['users'], user_data)
+            
+            if not result.get('success'):
+                logger.error(f"User creation failed: {result.get('error')}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Failed to create account'
+                }), 500
+            
+            user_id = result.get('data', {}).get('ROWID')
         
         # Clear pending registration
         _clear_pending_registration(email)
         
-        # Create session
+        # Create session with appropriate user_type
         try:
             session_id, csrf_token = create_session(
                 user_id=user_id,
                 user_email=email,
-                user_role='User',
+                user_role=user_role,  # 'User', 'Employee', or 'Admin'
                 ip_address=_get_client_ip(),
                 user_agent=_get_user_agent(),
-                device_fingerprint=None
+                device_fingerprint=None,
+                user_type=user_type  # 'user' for passengers, 'employee' for staff
             )
         except Exception as sess_err:
             logger.error(f"Session creation failed for {email}: {sess_err}")
-            # User was created but session failed - still return success
-            # User can login to get a session
+            # User/Employee was created but session failed - still return success
+            # Can login to get a session
             return jsonify({
                 'status': 'success',
                 'message': 'Registration successful! Please login.',
@@ -386,7 +621,8 @@ def verify_registration():
                         'id': user_id,
                         'fullName': pending_data['fullName'],
                         'email': email,
-                        'role': 'User',
+                        'role': user_role,
+                        'type': user_type,
                     },
                     'csrfToken': None,
                 }
@@ -397,15 +633,21 @@ def verify_registration():
             'fullName': pending_data['fullName'],
             'email': email,
             'phoneNumber': pending_data.get('phoneNumber', ''),
-            'role': 'User',
+            'role': user_role,  # User, Employee, or Admin
+            'type': user_type,  # 'user' or 'employee'
             'accountStatus': 'Active',
             'emailVerified': True,
         }
         
         # Build response with session cookie
+        welcome_message = (
+            'Employee registration successful! Welcome to the team.' if is_employee 
+            else 'Registration successful! Welcome aboard.'
+        )
+        
         response = make_response(jsonify({
             'status': 'success',
-            'message': 'Registration successful! Welcome aboard.',
+            'message': welcome_message,
             'data': {
                 'user': user_response,
                 'csrfToken': csrf_token,
@@ -414,12 +656,12 @@ def verify_registration():
         
         _set_session_cookie(response, session_id)
         
-        logger.info(f"User registered successfully: {email}")
+        logger.info(f"{'Employee' if is_employee else 'User'} registered successfully: {email}")
         return response
         
     except Exception as e:
         logger.exception(f"Registration verification error: {e}")
-        return jsonify({'status': 'error', 'message': f'Registration failed: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': 'Registration failed due to a server error. Please try again.'}), 500
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -449,14 +691,12 @@ def resend_registration_otp():
     if not email:
         return jsonify({'status': 'error', 'message': 'Email is required'}), 400
     
-    # Check if there's a pending registration
-    pending = _get_pending_registration(email)
-    if not pending:
-        return jsonify({
-            'status': 'error',
-            'message': 'No pending registration found. Please start registration again.'
-        }), 400
-    
+    # In serverless deployments we don't rely on in-memory pending state.
+    # Allow resend as long as the email is not already registered.
+    existing = cloudscale_repo.get_user_by_email(email)
+    if existing:
+        return jsonify({'status': 'error', 'message': 'Email already registered'}), 409
+
     # Check cooldown
     can_send, remaining = can_resend_otp(email, 'registration')
     if not can_send:
@@ -466,10 +706,18 @@ def resend_registration_otp():
             'cooldown': remaining
         }), 429
     
-    # Send new OTP
-    otp_result = send_registration_otp(email)
+    # Send new OTP (mark as resend)
+    otp_result = send_registration_otp(email, is_resend=True)
     
     if not otp_result.get('success'):
+        # Check if limit exceeded
+        if otp_result.get('limit_exceeded'):
+            return jsonify({
+                'status': 'error',
+                'message': otp_result.get('error'),
+                'limit_exceeded': True
+            }), 429
+        
         return jsonify({
             'status': 'error',
             'message': otp_result.get('error', 'Failed to send verification code')
@@ -479,6 +727,7 @@ def resend_registration_otp():
         'status': 'success',
         'message': 'New verification code sent to your email',
         'data': {
-            'expiresInMinutes': otp_result.get('expiresInMinutes', 15)
+            'expiresInMinutes': otp_result.get('expiresInMinutes', 15),
+            'remaining_resend_attempts': otp_result.get('remaining_resend_attempts', 2)
         }
     }), 200

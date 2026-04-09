@@ -5,10 +5,45 @@ Secure Cross-Origin Resource Sharing configuration.
 
 import os
 import logging
+from urllib.parse import urlparse
+
 from flask import request
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
+
+_CATALYST_DEV_ORIGIN_SUFFIX = ".development.catalystserverless.in"
+
+def _normalize_origin(origin: str) -> str:
+    """Normalize an Origin for strict comparisons (no path/query; no trailing slash)."""
+    origin = (origin or "").strip()
+    if origin.endswith('/'):
+        origin = origin[:-1]
+
+    try:
+        parsed = urlparse(origin)
+        if parsed.scheme and parsed.netloc:
+            host = (parsed.hostname or "").lower()
+            if not host:
+                return origin
+            netloc = host
+            if parsed.port:
+                netloc = f"{host}:{parsed.port}"
+            return f"{parsed.scheme.lower()}://{netloc}"
+    except Exception:
+        return origin
+
+    return origin
+
+
+def _is_catalyst_dev_origin(origin: str) -> bool:
+    """Allow Catalyst development serverless origins by host suffix."""
+    try:
+        parsed = urlparse((origin or "").strip())
+        host = (parsed.hostname or "").lower()
+        return bool(host) and host.endswith(_CATALYST_DEV_ORIGIN_SUFFIX)
+    except Exception:
+        return False
 
 
 class CORSConfig:
@@ -23,7 +58,8 @@ class CORSConfig:
         Args:
             allowed_origins: List of allowed origins (must be explicit)
         """
-        self.allowed_origins = allowed_origins or self._get_default_origins()
+        raw_origins = allowed_origins or self._get_default_origins()
+        self.allowed_origins = sorted({_normalize_origin(o) for o in raw_origins if o})
         
         # Validate no wildcards when using credentials
         if '*' in self.allowed_origins:
@@ -65,7 +101,7 @@ class CORSConfig:
                 logger.warning(f"CORS: Invalid origin {origin} (missing scheme)")
                 continue
             
-            validated.append(origin)
+            validated.append(_normalize_origin(origin))
         
         return validated
     
@@ -82,13 +118,31 @@ class CORSConfig:
         if not origin:
             return False
         
-        # Exact match required
-        is_allowed = origin in self.allowed_origins
-        
-        if not is_allowed:
-            logger.warning(f"CORS: Blocked origin: {origin}")
-        
-        return is_allowed
+        norm_origin = _normalize_origin(origin)
+
+        # Exact match required for cross-origin, but treat same-origin as allowed.
+        if norm_origin in self.allowed_origins:
+            return True
+
+        # Catalyst dev deployments use dynamic subdomains; allow by suffix.
+        if _is_catalyst_dev_origin(norm_origin):
+            return True
+
+        try:
+            forwarded_proto = (request.headers.get('X-Forwarded-Proto') or '').split(',')[0].strip()
+            forwarded_host = (request.headers.get('X-Forwarded-Host') or '').split(',')[0].strip()
+
+            scheme = forwarded_proto or request.scheme
+            host = forwarded_host or request.host
+
+            same_origin = _normalize_origin(f"{scheme}://{host}")
+            if norm_origin == same_origin:
+                return True
+        except Exception:
+            pass
+
+        logger.warning(f"CORS: Blocked origin: {origin}")
+        return False
     
     def get_allowed_origin(self, request_origin: Optional[str]) -> Optional[str]:
         """
