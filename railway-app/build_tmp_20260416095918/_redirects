@@ -1,0 +1,6 @@
+# Zoho Catalyst SPA routing
+# All routes should serve index.html except API routes
+
+/server/*  /server/:splat  200
+/app/*  /app/index.html  200
+/*  /app/index.html  200

@@ -1,0 +1,26 @@
+{
+    "name": "railway-ticketing-frontend",
+    "version": "2.0.0",
+    "homepage": "/app",
+    "spa": true,
+    "index_document": "index.html",
+    "error_document": "index.html",
+    "rewrites": [
+        {
+            "source": "/server/**",
+            "destination": "/server/**"
+        },
+        {
+            "source": "/app/server/**",
+            "destination": "/app/server/**"
+        },
+        {
+            "source": "/app/**",
+            "destination": "/app/index.html"
+        },
+        {
+            "source": "**",
+            "destination": "/app/index.html"
+        }
+    ]
+}

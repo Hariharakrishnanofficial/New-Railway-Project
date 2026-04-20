@@ -1,0 +1,406 @@
+/**
+ * SessionManagement Component Styles
+ * Smart Railway Ticketing System
+ */
+
+.session-management {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Header */
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.session-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.session-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Description */
+.session-description {
+  color: #6b7280;
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Buttons */
+.session-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.session-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.session-btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.session-btn-secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.session-btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.session-btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.session-btn-revoke {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.session-btn-revoke:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+/* Session List */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: #f9fafb;
+  border-radius: 8px;
+  color: #6b7280;
+}
+
+/* Session Card */
+.session-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.session-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.session-card-current {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.session-card-current:hover {
+  border-color: #22c55e;
+}
+
+/* Session Icon */
+.session-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 10px;
+  color: #6b7280;
+}
+
+.session-card-current .session-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Session Info */
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-device {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #1f2937;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.session-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.session-details span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.session-ip::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #9ca3af;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+/* Badge */
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.session-badge-current {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Session Action */
+.session-action {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Loading State */
+.session-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  color: #6b7280;
+}
+
+.session-loading p {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* Spinner */
+.session-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: session-spin 0.8s linear infinite;
+}
+
+.session-spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fecaca;
+  border-top-color: #ef4444;
+  border-radius: 50%;
+  animation: session-spin 0.8s linear infinite;
+}
+
+@keyframes session-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error State */
+.session-error {
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* Footer */
+.session-footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.session-note {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.session-note strong {
+  color: #374151;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .session-management {
+    padding: 16px;
+  }
+
+  .session-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .session-actions {
+    flex-direction: column;
+  }
+
+  .session-card {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .session-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .session-details {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .session-action {
+    width: 100%;
+  }
+
+  .session-btn-revoke {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .session-management {
+    color: #f3f4f6;
+  }
+
+  .session-header h2 {
+    color: #f9fafb;
+  }
+
+  .session-description {
+    color: #9ca3af;
+  }
+
+  .session-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .session-card:hover {
+    border-color: #4b5563;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .session-card-current {
+    background: #14532d;
+    border-color: #22c55e;
+  }
+
+  .session-icon {
+    background: #374151;
+    color: #9ca3af;
+  }
+
+  .session-card-current .session-icon {
+    background: #166534;
+    color: #4ade80;
+  }
+
+  .session-device {
+    color: #f9fafb;
+  }
+
+  .session-details {
+    color: #9ca3af;
+  }
+
+  .session-btn-secondary {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #4b5563;
+  }
+
+  .session-btn-secondary:hover:not(:disabled) {
+    background: #4b5563;
+  }
+
+  .session-empty {
+    background: #1f2937;
+    color: #9ca3af;
+  }
+
+  .session-error {
+    background: #7f1d1d;
+    border-color: #dc2626;
+    color: #fca5a5;
+  }
+
+  .session-footer {
+    border-top-color: #374151;
+  }
+
+  .session-note {
+    color: #9ca3af;
+  }
+
+  .session-note strong {
+    color: #e5e7eb;
+  }
+}
