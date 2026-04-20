@@ -17,14 +17,20 @@ Employees are separate from Users (passengers). Employees have:
 
 import json
 import logging
+import time
+from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Tuple
 
 from config import TABLES
 from repositories.cloudscale_repository import cloudscale_repo
 from core.security import hash_password, verify_password
 
 logger = logging.getLogger(__name__)
+
+RBAC_ROLE_PERMISSIONS_SETTING_KEY = 'RBAC_ROLE_PERMISSIONS_V1'
+_ROLE_PERMISSION_CACHE: Dict[str, Any] = {'value': None, 'expires_at': 0.0}
+_ROLE_PERMISSION_CACHE_TTL_SECONDS = 60
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -38,7 +44,7 @@ DEFAULT_ADMIN_PERMISSIONS = {
         "trains": ["view", "create", "edit", "delete"],
         "stations": ["view", "create", "edit", "delete"],
         "routes": ["view", "create", "edit", "delete"],
-        "users": ["view", "edit", "deactivate"],
+        "users": ["view", "create", "edit", "deactivate"],
         "employees": ["view", "create", "edit", "deactivate", "invite"],
         "reports": ["view", "export"],
         "announcements": ["view", "create", "edit", "delete"],
@@ -62,6 +68,266 @@ DEFAULT_EMPLOYEE_PERMISSIONS = {
     "admin_access": False,
     "can_invite_employees": False,
 }
+
+DEFAULT_USER_PERMISSIONS = {
+    "modules": {},
+    "admin_access": False,
+    "can_invite_employees": False,
+}
+
+
+def _normalize_role_key(role_value: str) -> str:
+    role = (role_value or '').strip().lower()
+    if role in ('admin', 'administrator'):
+        return 'ADMIN'
+    if role in ('employee', 'staff'):
+        return 'EMPLOYEE'
+    if role in ('user', 'passenger'):
+        return 'USER'
+    return 'USER'
+
+
+def _default_role_permissions_map() -> Dict[str, Dict[str, Any]]:
+    return {
+        'ADMIN': deepcopy(DEFAULT_ADMIN_PERMISSIONS),
+        'EMPLOYEE': deepcopy(DEFAULT_EMPLOYEE_PERMISSIONS),
+        'USER': deepcopy(DEFAULT_USER_PERMISSIONS),
+    }
+
+
+def _normalize_permission_actions(actions: Any) -> List[str]:
+    if not isinstance(actions, list):
+        return []
+    normalized: List[str] = []
+    seen = set()
+    for action in actions:
+        if not isinstance(action, str):
+            continue
+        action_value = action.strip()
+        if not action_value:
+            continue
+        action_key = action_value.lower()
+        if action_key in seen:
+            continue
+        seen.add(action_key)
+        normalized.append(action_value)
+    return normalized
+
+
+def _normalize_permissions_payload(permissions: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(permissions, dict):
+        return None
+
+    modules_raw = permissions.get('modules')
+    if modules_raw is None:
+        modules_raw = {}
+    if not isinstance(modules_raw, dict):
+        return None
+
+    modules: Dict[str, List[str]] = {}
+    for module_name, actions in modules_raw.items():
+        if not isinstance(module_name, str):
+            continue
+        module_key = module_name.strip()
+        if not module_key:
+            continue
+        modules[module_key] = _normalize_permission_actions(actions)
+
+    return {
+        'modules': modules,
+        'admin_access': bool(permissions.get('admin_access', False)),
+        'can_invite_employees': bool(permissions.get('can_invite_employees', False)),
+    }
+
+
+def _extract_row_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(row, dict):
+        return {}
+    for key in ('Settings', 'settings'):
+        payload = row.get(key)
+        if isinstance(payload, dict):
+            return payload
+    first_value = next(iter(row.values()), None)
+    if isinstance(first_value, dict):
+        return first_value
+    return row
+
+
+def _query_setting_record(setting_key: str) -> Dict[str, Any]:
+    escaped_key = setting_key.replace("'", "''")
+    queries = [
+        f"SELECT ROWID, Setting_Key, Setting_Value FROM {TABLES['settings']} WHERE Setting_Key = '{escaped_key}' ORDER BY ROWID DESC LIMIT 1",
+        f"SELECT ROWID, key, value FROM {TABLES['settings']} WHERE key = '{escaped_key}' ORDER BY ROWID DESC LIMIT 1",
+        f"SELECT ROWID, Name, Value FROM {TABLES['settings']} WHERE Name = '{escaped_key}' ORDER BY ROWID DESC LIMIT 1",
+    ]
+
+    for query in queries:
+        result = cloudscale_repo.execute_query(query)
+        if not result.get('success'):
+            continue
+        rows = (result.get('data') or {}).get('data') or []
+        if rows:
+            payload = _extract_row_payload(rows[0])
+            return payload if isinstance(payload, dict) else {}
+    return {}
+
+
+def _parse_role_permissions_setting_value(setting_row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(setting_row, dict):
+        return None
+
+    raw_value = (
+        setting_row.get('Setting_Value')
+        or setting_row.get('value')
+        or setting_row.get('Value')
+    )
+    if raw_value is None:
+        return None
+
+    if isinstance(raw_value, dict):
+        payload = raw_value
+    else:
+        if not isinstance(raw_value, str):
+            return None
+        text = raw_value.strip()
+        if not text:
+            return None
+        try:
+            payload = json.loads(text)
+        except Exception:
+            logger.warning("RBAC setting contains invalid JSON")
+            return None
+
+    if not isinstance(payload, dict):
+        return None
+    return payload.get('roles') if isinstance(payload.get('roles'), dict) else payload
+
+
+def _normalize_role_permissions_map(config_payload: Any) -> Dict[str, Dict[str, Any]]:
+    normalized_map = _default_role_permissions_map()
+
+    if not isinstance(config_payload, dict):
+        return normalized_map
+
+    source = config_payload.get('roles') if isinstance(config_payload.get('roles'), dict) else config_payload
+    if not isinstance(source, dict):
+        return normalized_map
+
+    for role_key, role_permissions in source.items():
+        normalized_role = _normalize_role_key(role_key)
+        normalized_permissions = _normalize_permissions_payload(role_permissions)
+        if normalized_permissions is None:
+            continue
+        normalized_map[normalized_role] = normalized_permissions
+
+    return normalized_map
+
+
+def clear_role_permissions_cache() -> None:
+    _ROLE_PERMISSION_CACHE['value'] = None
+    _ROLE_PERMISSION_CACHE['expires_at'] = 0.0
+
+
+def get_role_permissions_map(force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
+    now = time.time()
+    cached_value = _ROLE_PERMISSION_CACHE.get('value')
+    expires_at = float(_ROLE_PERMISSION_CACHE.get('expires_at') or 0.0)
+
+    if not force_refresh and isinstance(cached_value, dict) and now < expires_at:
+        return deepcopy(cached_value)
+
+    try:
+        setting_row = _query_setting_record(RBAC_ROLE_PERMISSIONS_SETTING_KEY)
+        parsed_map = _parse_role_permissions_setting_value(setting_row)
+        normalized_map = _normalize_role_permissions_map(parsed_map)
+    except Exception:
+        logger.exception("Failed to load RBAC role permissions from Settings; using defaults")
+        normalized_map = _default_role_permissions_map()
+
+    _ROLE_PERMISSION_CACHE['value'] = normalized_map
+    _ROLE_PERMISSION_CACHE['expires_at'] = now + _ROLE_PERMISSION_CACHE_TTL_SECONDS
+    return deepcopy(normalized_map)
+
+
+def get_permissions_for_role(role_value: str, force_refresh: bool = False) -> Dict[str, Any]:
+    role_key = _normalize_role_key(role_value)
+    permissions_map = get_role_permissions_map(force_refresh=force_refresh)
+    default_map = _default_role_permissions_map()
+    return deepcopy(permissions_map.get(role_key) or default_map.get(role_key) or DEFAULT_USER_PERMISSIONS)
+
+
+def _update_setting_row(setting_row_id: str, value_json: str) -> Tuple[bool, str]:
+    update_payloads = [
+        {'Setting_Value': value_json},
+        {'value': value_json},
+        {'Value': value_json},
+    ]
+    last_error = ''
+    for payload in update_payloads:
+        result = cloudscale_repo.update_record(TABLES['settings'], setting_row_id, payload)
+        if result.get('success'):
+            return True, ''
+        last_error = str(result.get('error', 'Failed to update setting'))
+    return False, last_error
+
+
+def _create_setting_row(value_json: str) -> Tuple[bool, str]:
+    create_payloads = [
+        {
+            'Setting_Key': RBAC_ROLE_PERMISSIONS_SETTING_KEY,
+            'Setting_Value': value_json,
+            'Description': 'Role permission map (RBAC v1)',
+            'Category': 'security',
+            'Is_System': True,
+        },
+        {
+            'key': RBAC_ROLE_PERMISSIONS_SETTING_KEY,
+            'value': value_json,
+            'description': 'Role permission map (RBAC v1)',
+            'category': 'security',
+        },
+        {
+            'Name': RBAC_ROLE_PERMISSIONS_SETTING_KEY,
+            'Value': value_json,
+            'Description': 'Role permission map (RBAC v1)',
+            'Category': 'security',
+        },
+    ]
+    last_error = ''
+    for payload in create_payloads:
+        result = cloudscale_repo.create_record(TABLES['settings'], payload)
+        if result.get('success'):
+            return True, ''
+        last_error = str(result.get('error', 'Failed to create setting'))
+    return False, last_error
+
+
+def upsert_role_permissions_map(config_payload: Any) -> Dict[str, Any]:
+    normalized_map = _normalize_role_permissions_map(config_payload)
+    value_json = json.dumps({'roles': normalized_map}, separators=(',', ':'))
+
+    try:
+        setting_row = _query_setting_record(RBAC_ROLE_PERMISSIONS_SETTING_KEY)
+        setting_row_id = str(setting_row.get('ROWID') or '').strip()
+        if setting_row_id:
+            success, error = _update_setting_row(setting_row_id, value_json)
+        else:
+            success, error = _create_setting_row(value_json)
+
+        if not success:
+            return {'success': False, 'error': error or 'Failed to persist role permissions'}
+
+        clear_role_permissions_cache()
+        return {
+            'success': True,
+            'data': {
+                'roles': get_role_permissions_map(force_refresh=True),
+                'setting_key': RBAC_ROLE_PERMISSIONS_SETTING_KEY,
+            },
+        }
+    except Exception as exc:
+        logger.exception("Failed to upsert RBAC role permissions")
+        return {'success': False, 'error': str(exc)}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -143,33 +409,81 @@ def create_employee(
 
         # Set default permissions based on role
         if permissions is None:
-            permissions = DEFAULT_ADMIN_PERMISSIONS if normalized_role == 'Admin' else DEFAULT_EMPLOYEE_PERMISSIONS
+            permissions = get_permissions_for_role(normalized_role)
         
         now = datetime.now(timezone.utc).isoformat()
         
-        employee_data = {
+        # Build a schema-resilient payload (Employees schema has varied across deployments).
+        base_data = {
             'Employee_ID': employee_id,
             'Full_Name': full_name.strip(),
             'Email': email_lower,
             'Password': password_hash,
-            'Phone_Number': phone_number or '',
             'Role': normalized_role,
-            'Department': department or '',
-            'Designation': designation or '',
-            # 'Permissions': json.dumps(permissions),  # TODO: Add Permissions column to CloudScale
-            'Invited_By': int(invited_by),
-            'Invitation_Id': int(invitation_id) if invitation_id else None,
-            'Joined_At': now,
             'Account_Status': 'Active',
-            'Last_Login': None,
-            'Created_At': now,
-            'Updated_At': now,
+            'Joined_At': now,
         }
 
+        # Optional fields (add only if provided)
+        if phone_number is not None:
+            base_data['Phone_Number'] = phone_number
+        if department is not None:
+            base_data['Department'] = department
+        if designation is not None:
+            base_data['Designation'] = designation
+
+        # Some schemas include these fields; include when available.
+        try:
+            base_data['Invited_By'] = int(invited_by)
+        except Exception:
+            pass
+        if invitation_id:
+            try:
+                base_data['Invitation_Id'] = int(invitation_id)
+            except Exception:
+                pass
+
+        # Prefer explicit active flag if the column exists.
+        base_data['Is_Active'] = True
+
+        # Optional audit timestamps (some schemas use Created_At/Updated_At, others rely on CREATEDTIME/MODIFIEDTIME).
+        base_data['Created_At'] = now
+        base_data['Updated_At'] = now
+
         if user_id:
-            employee_data['User_Id'] = int(user_id)
-        
-        result = cloudscale_repo.create_employee(employee_data)
+            # Some deployments use User_ID; keep both attempts via fallback.
+            try:
+                base_data['User_ID'] = int(user_id)
+            except Exception:
+                pass
+
+        def _try_create(payload: dict) -> dict:
+            return cloudscale_repo.create_employee(payload)
+
+        result = _try_create(dict(base_data))
+        if not result.get('success'):
+            # Fallback 1: drop schema-variant columns that often cause "Invalid column" errors
+            slim = dict(base_data)
+            for k in (
+                'Created_At', 'Updated_At',
+                'Invitation_Id', 'Invited_By', 'User_ID',
+                'Is_Active', 'Joined_At',
+                'Phone_Number', 'Department', 'Designation',
+            ):
+                slim.pop(k, None)
+            result = _try_create(slim)
+
+        if not result.get('success'):
+            # Fallback 2: minimal required fields only
+            minimal = {
+                'Employee_ID': employee_id,
+                'Full_Name': full_name.strip(),
+                'Email': email_lower,
+                'Password': password_hash,
+                'Role': normalized_role,
+                'Account_Status': 'Active',
+            }
+            result = _try_create(minimal)
         
         if not result.get('success'):
             logger.error(f"Failed to create employee: {result.get('error')}")
@@ -216,14 +530,10 @@ def get_employee(employee_row_id: str) -> Dict[str, Any]:
                 'success': False,
                 'error': 'Employee not found'
             }
-        
-        # Parse permissions JSON
-        permissions = {}
-        if employee.get('Permissions'):
-            try:
-                permissions = json.loads(employee['Permissions'])
-            except (json.JSONDecodeError, TypeError):
-                permissions = {}
+
+        # Role-based RBAC: permissions are derived from configured role map with defaults fallback.
+        normalized_role = _normalize_employee_role(employee.get('Role', 'Employee'))
+        permissions = get_permissions_for_role(normalized_role)
         
         return {
             'success': True,
@@ -275,9 +585,7 @@ def update_employee(
                 'error': 'Employee not found'
             }
         
-        update_data = {
-            'Updated_At': datetime.now(timezone.utc).isoformat()
-        }
+        update_data = {}
         
         if full_name is not None:
             update_data['Full_Name'] = full_name.strip()
@@ -337,10 +645,12 @@ def change_employee_password(employee_row_id: str, new_password: str) -> Dict[st
         
         update_data = {
             'Password': password_hash,
-            'Updated_At': datetime.now(timezone.utc).isoformat()
         }
-        
+
         result = cloudscale_repo.update_employee(employee_row_id, update_data)
+        if not result.get('success'):
+            # Fallback: some schemas disallow updating unknown fields; keep minimal.
+            result = cloudscale_repo.update_employee(employee_row_id, {'Password': password_hash})
         
         if not result.get('success'):
             return {
@@ -349,9 +659,9 @@ def change_employee_password(employee_row_id: str, new_password: str) -> Dict[st
             }
 
         if user:
+            # Users table uses Catalyst auto MODIFIEDTIME; don't write Modified_Time (schema variant).
             cloudscale_repo.update_record(TABLES['users'], str(user.get('ROWID')), {
                 'Password': password_hash,
-                'Modified_Time': datetime.now(timezone.utc).isoformat(),
             })
         
         logger.info(f"Password changed for employee ROWID={employee_row_id}")
@@ -427,12 +737,8 @@ def list_all_employees() -> Dict[str, Any]:
         # Format employees for response (exclude password)
         formatted = []
         for emp in employees:
-            permissions = {}
-            if emp.get('Permissions'):
-                try:
-                    permissions = json.loads(emp['Permissions'])
-                except (json.JSONDecodeError, TypeError):
-                    permissions = {}
+            normalized_role = _normalize_employee_role(emp.get('Role', 'Employee'))
+            permissions = get_permissions_for_role(normalized_role)
             
             formatted.append({
                 'row_id': emp.get('ROWID'),
@@ -485,12 +791,8 @@ def get_employees_by_role(role: str) -> Dict[str, Any]:
         # Format employees for response (exclude password)
         formatted = []
         for emp in employees:
-            permissions = {}
-            if emp.get('Permissions'):
-                try:
-                    permissions = json.loads(emp['Permissions'])
-                except (json.JSONDecodeError, TypeError):
-                    permissions = {}
+            normalized_role = _normalize_employee_role(emp.get('Role', 'Employee'))
+            permissions = get_permissions_for_role(normalized_role)
             
             formatted.append({
                 'row_id': emp.get('ROWID'),
@@ -550,12 +852,8 @@ def list_employees(
         # Format employees for response (exclude password)
         formatted = []
         for emp in employees:
-            permissions = {}
-            if emp.get('Permissions'):
-                try:
-                    permissions = json.loads(emp['Permissions'])
-                except (json.JSONDecodeError, TypeError):
-                    permissions = {}
+            normalized_role = _normalize_employee_role(emp.get('Role', 'Employee'))
+            permissions = get_permissions_for_role(normalized_role)
             
             formatted.append({
                 'row_id': emp.get('ROWID'),
@@ -636,13 +934,9 @@ def authenticate_employee(email: str, password: str) -> Dict[str, Any]:
                 'error': 'Invalid email or password'
             }
 
-        # Step 4: Parse permissions
-        permissions = {}
-        if employee.get('Permissions'):
-            try:
-                permissions = json.loads(employee['Permissions'])
-            except (json.JSONDecodeError, TypeError):
-                permissions = {}
+        # Step 4: Resolve permissions from role configuration (with defaults fallback)
+        normalized_role = _normalize_employee_role(employee.get('Role', 'Employee'))
+        permissions = get_permissions_for_role(normalized_role)
 
         logger.info(f"Employee authenticated: {employee.get('Employee_ID')} ({email_lower})")
         
@@ -653,7 +947,7 @@ def authenticate_employee(email: str, password: str) -> Dict[str, Any]:
                 'employee_id': employee.get('Employee_ID'),
                 'full_name': employee.get('Full_Name'),
                 'email': employee.get('Email'),
-                'role': _normalize_user_role(employee.get('Role', 'EMPLOYEE')),
+                'role': _normalize_user_role(normalized_role),
                 'department': employee.get('Department'),
                 'designation': employee.get('Designation'),
                 'permissions': permissions,
@@ -690,20 +984,13 @@ def has_permission(employee_row_id: str, module: str, action: str) -> bool:
         employee = cloudscale_repo.get_employee_cached(employee_row_id)
         if not employee:
             return False
-        
-        # Admin access gives all permissions
-        permissions = {}
-        if employee.get('Permissions'):
-            try:
-                permissions = json.loads(employee['Permissions'])
-            except (json.JSONDecodeError, TypeError):
-                permissions = {}
-        
-        if permissions.get('admin_access'):
+
+        normalized_role = _normalize_employee_role(employee.get('Role', 'Employee'))
+        role_permissions = get_permissions_for_role(normalized_role)
+        if role_permissions.get('admin_access'):
             return True
-        
-        # Check specific module permission
-        module_perms = permissions.get('modules', {}).get(module, [])
+
+        module_perms = (role_permissions.get('modules') or {}).get(module, [])
         return action in module_perms
         
     except Exception:
@@ -716,15 +1003,12 @@ def can_invite_employees(employee_row_id: str) -> bool:
         employee = cloudscale_repo.get_employee_cached(employee_row_id)
         if not employee:
             return False
-        
-        permissions = {}
-        if employee.get('Permissions'):
-            try:
-                permissions = json.loads(employee['Permissions'])
-            except (json.JSONDecodeError, TypeError):
-                permissions = {}
-        
-        return permissions.get('can_invite_employees', False)
+
+        normalized_role = _normalize_employee_role(employee.get('Role', 'Employee'))
+        role_permissions = get_permissions_for_role(normalized_role)
+        if role_permissions.get('admin_access'):
+            return True
+        return bool(role_permissions.get('can_invite_employees', False))
         
     except Exception:
         return False
@@ -736,14 +1020,9 @@ def get_employee_permissions(employee_row_id: str) -> Dict:
         employee = cloudscale_repo.get_employee_cached(employee_row_id)
         if not employee:
             return {}
-        
-        if employee.get('Permissions'):
-            try:
-                return json.loads(employee['Permissions'])
-            except (json.JSONDecodeError, TypeError):
-                pass
-        
-        return {}
+
+        normalized_role = _normalize_employee_role(employee.get('Role', 'Employee'))
+        return get_permissions_for_role(normalized_role)
         
     except Exception:
         return {}

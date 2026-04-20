@@ -9,6 +9,24 @@
   },
   "projects": [
     {
+      "idx": 2,
+      "id": "31207000000026117",
+      "name": "my-app",
+      "domain": {
+        "id": "50039797068",
+        "name": "my-app-60066581545.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60066581545",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    },
+    {
       "idx": 1,
       "id": "31207000000078061",
       "name": "Smart-Railway-App",

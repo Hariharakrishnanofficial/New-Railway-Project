@@ -25,6 +25,7 @@ const ADMIN_NAV = [
   { path: '/announcements',label: 'Announcements', icon: 'alert'    },
   { path: '/reports',      label: 'Reports',       icon: 'health'   },
   { path: '/settings',     label: 'Settings',      icon: 'settings' },
+  { path: '/email-automation', label: 'Email Automation', icon: 'robot' },
   { path: '/admin-logs',   label: 'Admin Logs',    icon: 'shield'   },
   { path: '/zoho-explorer',label: 'CloudScale Explorer', icon: 'settings' },
   { path: '/mcp-chat',    label: 'MCP Chat',      icon: 'search'   },
@@ -45,6 +46,7 @@ const ACCENT = {
   '/announcements':'#f43f5e',
   '/reports':      '#3b82f6',
   '/settings':     '#64748b',
+  '/email-automation': '#10b981',
   '/admin-logs':   '#ef4444',
   '/zoho-explorer': '#60a5fa',
   '/mcp-chat':      '#06b6d4',
@@ -59,6 +61,7 @@ function Breadcrumb() {
     stations: 'Stations', users: 'Users', 'admin-users': 'Admin Users', admin: 'Admin',
     bookings: 'Bookings', fares: 'Fares',
     settings: 'Settings', overview: 'Overview',
+    'email-automation': 'Email Automation',
     inventory: 'Inventory', 'admin-logs': 'Admin Logs',
     'mcp-chat': 'MCP Chat', 'ai-test': 'AI Test Agent',
   };

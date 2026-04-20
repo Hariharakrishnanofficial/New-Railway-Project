@@ -106,11 +106,15 @@ This enables support/debug teams to trace a user error response to backend logs 
 
 ### 4) Persistence Strategy (Table Logging)
 
-Critical errors are persisted as audit events using existing session audit infrastructure:
+Critical errors are persisted to a dedicated error table:
 
-- Event type: `APPLICATION_ERROR`
-- Storage table: `Session_Audit_Log` (via existing `log_audit_event` path)
+- Primary table: `Application_Errors`
+- Event code: `APPLICATION_ERROR`
 - Default persistence threshold: HTTP `>= 500`
+
+Fallback behavior:
+
+- If `Application_Errors` is not available yet, system falls back to `Session_Audit_Log` using existing audit logging.
 
 Stored details include:
 
@@ -122,6 +126,53 @@ Stored details include:
 
 ---
 
+## Application_Errors Table Schema
+
+Use the following schema when creating the dedicated error table in CloudScale.
+
+```text
+Table: Application_Errors
+
+Required Columns:
+- Request_ID        (TEXT, indexed)
+- Error_Code        (TEXT, indexed)
+- Status_Code       (NUMBER, indexed)
+- Message           (TEXT)
+- Severity          (TEXT, indexed)
+- Created_At        (TEXT/DATETIME, indexed)
+
+Optional Context Columns:
+- Exception_Type    (TEXT)
+- Exception_Message (TEXT)
+- Request_Method    (TEXT)
+- Request_Path      (TEXT, indexed)
+- Endpoint          (TEXT)
+- User_ID           (TEXT, indexed)
+- User_Email        (TEXT)
+- Session_ID        (TEXT)
+- IP_Address        (TEXT)
+- User_Agent        (TEXT)
+- Error_Details     (TEXT)
+```
+
+### Recommended Indexes
+
+1. `Request_ID`
+2. `Error_Code`
+3. `Status_Code`
+4. `Severity`
+5. `Request_Path`
+6. `Created_At`
+7. `User_ID`
+
+### Notes
+
+1. Keep `Error_Details` as JSON string text.
+2. Store timestamps in ISO-8601 UTC (for example: `2026-04-09T14:20:11.123456+00:00`).
+3. `Request_ID` should be the same value returned in API error responses and `X-Request-ID` header.
+
+---
+
 ## Error Processing Flow (Step-by-Step)
 
 1. Request enters API.
@@ -129,7 +180,7 @@ Stored details include:
 3. Route/service executes.
 4. If exception occurs, global error handler maps it to status + error_code.
 5. Handler calls `record_application_error(...)`.
-6. Utility writes `APPLICATION_ERROR` event to `Session_Audit_Log` (based on threshold).
+6. Utility writes to `Application_Errors` (based on threshold); if unavailable, it falls back to `Session_Audit_Log`.
 7. API responds with standardized JSON body including `request_id`.
 8. `after_request` adds `X-Request-ID` header.
 
@@ -156,13 +207,20 @@ Environment setting:
   - Meaning: only errors with status code >= this value are persisted.
   - Example: set to `400` if you want broader capture including client-side failures.
 
+Table migration/verification endpoints:
+
+- `POST /admin/migrate/errors`
+- `GET /admin/migrate/errors/schema`
+- `POST /admin/migrate/errors/test`
+
 ---
 
 ## Current File Map
 
 - `functions/smart_railway_app_function/core/error_tracking.py`
 - `functions/smart_railway_app_function/main.py`
-- `functions/smart_railway_app_function/services/session_service.py` (existing audit write path)
+- `functions/smart_railway_app_function/routes/error_migration.py`
+- `functions/smart_railway_app_function/services/session_service.py` (fallback audit write path)
 
 ---
 
@@ -172,8 +230,9 @@ Typical production debugging workflow:
 
 1. Collect `request_id` from client error response.
 2. Search centralized logs by `request_id`.
-3. Query `Session_Audit_Log` for `APPLICATION_ERROR` with matching details.
-4. Use route, error_code, and exception_type for root-cause isolation.
+3. Query `Application_Errors` for matching `Request_ID` / `Error_Code`.
+4. If table not yet deployed, query `Session_Audit_Log` for `APPLICATION_ERROR` fallback events.
+5. Use route, error_code, and exception_type for root-cause isolation.
 
 ---
 

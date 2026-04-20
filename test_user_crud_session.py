@@ -152,7 +152,7 @@ def main() -> None:
 
     me_resp = passenger.get(f"{BASE_URL}/users/me")
     me_json = _require_status(me_resp, (200,))
-    me_id = str((me_json.get("data") or {}).get("ROWID") or "")
+    me_id = str((me_json.get("data") or {}).get("id") or "")
 
     if me_id and me_id != str(passenger_rowid):
         _fail(f"/users/me returned different user. expected={passenger_rowid} got={me_id}")
@@ -173,9 +173,9 @@ def main() -> None:
     # 6) Admin verifies Suspended
     verify_resp = admin.get(f"{BASE_URL}/users/{passenger_rowid}")
     verify_json = _require_status(verify_resp, (200,))
-    status = (verify_json.get("data") or {}).get("Account_Status")
+    status = (verify_json.get("data") or {}).get("accountStatus")
     if status != "Suspended":
-        _fail(f"Expected Account_Status='Suspended' after delete, got: {status}\n{_pretty(verify_json)}")
+        _fail(f"Expected accountStatus='Suspended' after delete, got: {status}\n{_pretty(verify_json)}")
 
     print("OK: authenticated user CRUD flow passed")
 

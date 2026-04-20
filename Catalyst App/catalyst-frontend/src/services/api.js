@@ -629,6 +629,16 @@ export const analyticsApi = {
   revenue: () => client.get('/analytics/revenue'),
 };
 
+// Email automation â€” admin-facing control plane for MailBot
+export const emailAutomationApi = {
+  getSettings: () => client.get('/email-automation/settings', { headers: adminHeaders() }),
+  saveSettings: (data) => client.post('/email-automation/settings', data, { headers: adminHeaders() }),
+  getThreads: (params = {}) => client.get('/email-automation/threads', { params, headers: adminHeaders() }),
+  getThread: (threadKey) => client.get(`/email-automation/threads/${encodeURIComponent(threadKey)}`, { headers: adminHeaders() }),
+  processReply: (data) => client.post('/email-automation/process', data, { headers: adminHeaders() }),
+  health: () => client.get('/email-automation/health', { headers: adminHeaders() }),
+};
+
 // Add a default export for the Axios client
 export default axios.create({
   baseURL: BASE_URL,

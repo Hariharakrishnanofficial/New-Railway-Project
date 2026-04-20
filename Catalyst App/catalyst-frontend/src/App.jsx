@@ -32,6 +32,7 @@ import CloudScaleExplorerPage from './pages/CloudScaleExplorerPage';
 import AdminDashboard from './pages/AdminDashboard';
 import TrainRoutesPage from './pages/TrainRoutesPage';
 import MasterDataAdmin from './pages/admin/MasterDataAdmin';
+import EmailAutomationPage from './pages/EmailAutomationPage';
 
 // Passenger pages
 import SearchPage from './pages/SearchPage';
@@ -127,6 +128,7 @@ function AppCore() {
                   <Route path="/admin/fares/new" element={<MasterDataAdmin />} />
                   <Route path="/admin/inventory" element={<MasterDataAdmin />} />
                   <Route path="/admin/inventory/new" element={<MasterDataAdmin />} />
+                  <Route path="/admin/email-automation" element={<EmailAutomationPage />} />
                   <Route path="/train-routes" element={<TrainRoutesPage />} />
                   <Route path="/quotas" element={<MasterDataAdmin />} />
                   <Route path="/fares" element={<MasterDataAdmin />} />
@@ -145,6 +147,7 @@ function AppCore() {
                   <Route path="/admin-logs" element={<AdminLogsPage />} />
                   <Route path="/zoho-explorer" element={<CloudScaleExplorerPage />} />
                   <Route path="/mcp-chat" element={<MCPChatPage user={user} />} />
+                  <Route path="/email-automation" element={<EmailAutomationPage />} />
                   <Route path="/ai-test" element={<AITestAgent />} />
                   <Route path="*" element={<Navigate to="/admin" />} />
                 </Routes>

@@ -1,0 +1,90 @@
+{
+  "info": {
+    "_postman_id": "smart-railway-dev-tools",
+    "name": "Smart Railway - Dev Tools (Development Only)",
+    "description": "Development-only utilities for Smart Railway.\n\n⚠️ These endpoints must ONLY be used locally with APP_ENVIRONMENT=development.\nThey are not registered in production and should return 404 when APP_ENVIRONMENT!=development.\n\nBase URL (recommended): http://localhost:3000/server/smart_railway_app_function",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/server/smart_railway_app_function", "type": "string" },
+    { "key": "devTable", "value": "users", "type": "string" },
+    { "key": "devRowId", "value": "", "type": "string" },
+    { "key": "nextToken", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Dev Tables",
+      "description": "Generic CRUD/inspection endpoints powered by Catalyst Datastore API.",
+      "item": [
+        {
+          "name": "List Tables (configured + discovered)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dev/tables/"
+          }
+        },
+        {
+          "name": "List Columns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dev/tables/{{devTable}}/columns"
+          }
+        },
+        {
+          "name": "List Rows (paged)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dev/tables/{{devTable}}/rows?max_rows=50&next_token={{nextToken}}"
+          }
+        },
+        {
+          "name": "Get Row by ROWID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dev/tables/{{devTable}}/rows/{{devRowId}}"
+          }
+        },
+        {
+          "name": "Insert Row",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Example_Field\": \"value\"\n}"
+            },
+            "url": "{{baseUrl}}/dev/tables/{{devTable}}/rows"
+          }
+        },
+        {
+          "name": "Update Row (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Example_Field\": \"updated\"\n}"
+            },
+            "url": "{{baseUrl}}/dev/tables/{{devTable}}/rows/{{devRowId}}"
+          }
+        },
+        {
+          "name": "Delete Row",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/dev/tables/{{devTable}}/rows/{{devRowId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,15 +2,17 @@
 setlocal
 
 echo [1/5] Stopping Python and Node processes...
+REM taskkill can fail with "Access denied" in some environments; use PowerShell Stop-Process as a best-effort fallback.
 taskkill /F /IM python.exe >nul 2>&1
 taskkill /F /IM node.exe >nul 2>&1
+powershell -NoProfile -Command "Get-Process python,pythonw,node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
 
 echo [2/5] Waiting for process shutdown...
 timeout /t 2 /nobreak >nul
 
 echo [3/5] Removing .build folder...
 if exist ".build" (
-  rd /s /q ".build"
+  rd /s /q ".build" >nul 2>&1
 )
 
 if exist ".build" (

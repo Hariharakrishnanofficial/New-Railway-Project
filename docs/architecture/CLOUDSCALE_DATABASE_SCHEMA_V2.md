@@ -65,6 +65,8 @@ Before fix: `500 Internal Server Error` with FK violation
 | 18 | Session_Audit_Log | Session_Audit_Log | All_Session_Audit | Session security audit trail |
 | 19 | OTP_Tokens | OTP_Tokens | All_OTP_Tokens | Multi-purpose OTP verification |
 | 20 | Employee_Invitations | Employee_Invitations | All_Employee_Invitations | Employee onboarding invitations |
+| 21 | Application_Errors | Application_Errors | All_Application_Errors | Centralized backend error records |
+| 22 | Notifications | Notifications | All_Notifications | In-app notifications (bell icon + inbox; per-recipient rows) |
 
 ---
 
@@ -480,7 +482,9 @@ System announcements and alerts
 | Start_Date | DATETIME | - | - | Announcement start |
 | End_Date | DATETIME | - | - | Announcement end |
 | Is_Active | VARCHAR(10) | - | - | 'true' \| 'false' |
-| Created_By | LOOKUP | - | - | Admin user (→ Users) |
+| Audience_Type | VARCHAR(20) | - | - | `user` \| `employee` \| `both` (default: both) |
+| Audience_Roles | TEXT | - | - | Optional JSON array of employee roles (only if Audience_Type includes employee). Example: `["Admin"]` |
+| Created_By | LOOKUP | - | - | Admin employee (→ Employees) |
 | Created_Time | DATETIME | Auto | - | Record creation time |
 
 ---
@@ -491,7 +495,7 @@ Admin activity audit trail
 | Field | Type | Required | Unique | Description |
 |-------|------|----------|--------|-------------|
 | ID | BIGINT | PK | Yes | Auto-generated record ID |
-| Admin_User | LOOKUP | Yes | - | Admin reference (→ Users) |
+| Admin_User | LOOKUP | Yes | - | Admin reference (→ Employees) |
 | Action | VARCHAR(100) | Yes | - | Action performed |
 | Resource_Type | VARCHAR(50) | Yes | - | Train, Booking, User, etc. |
 | Resource_ID | VARCHAR(50) | - | - | ID of affected resource |
@@ -731,6 +735,78 @@ Employee invitation tracking for admin-initiated onboarding
 - `idx_invites_token` UNIQUE (Invitation_Token)
 - `idx_invites_email_status` (Email, Is_Used, Expires_At)
 - `idx_invites_invited_by` (Invited_By)
+
+---
+
+### 21. APPLICATION_ERRORS
+Centralized backend error tracking table for operational debugging and audits
+
+| Field | Type | Required | Unique | Description |
+|-------|------|----------|--------|-------------|
+| ID | BIGINT | PK | Yes | Auto-generated record ID (ROWID) |
+| Request_ID | VARCHAR(64) | Yes | - | Correlation ID returned to client and header |
+| Error_Code | VARCHAR(100) | Yes | - | Stable application error code |
+| Status_Code | INT | Yes | - | HTTP status code |
+| Message | VARCHAR(500) | Yes | - | User-safe error message |
+| Exception_Type | VARCHAR(100) | - | - | Python exception class |
+| Exception_Message | TEXT | - | - | Truncated internal exception text |
+| Request_Method | VARCHAR(10) | - | - | HTTP method (GET/POST/PUT/DELETE/PATCH) |
+| Request_Path | VARCHAR(500) | - | - | API route path |
+| Endpoint | VARCHAR(200) | - | - | Flask endpoint name |
+| User_ID | VARCHAR(50) | - | - | Current user ID (if available) |
+| User_Email | VARCHAR(255) | - | - | Current user email (if available) |
+| Session_ID | VARCHAR(80) | - | - | Current session identifier (truncated) |
+| IP_Address | VARCHAR(64) | - | - | Client IP address |
+| User_Agent | VARCHAR(300) | - | - | Client user-agent |
+| Severity | VARCHAR(20) | Yes | - | INFO \| WARNING \| ERROR |
+| Error_Details | TEXT | - | - | JSON details for diagnostics |
+| Created_At | DATETIME | Yes | - | Event timestamp (UTC ISO format) |
+| Created_Time | DATETIME | Auto | - | Record creation time |
+
+**Notes:**
+- Primary sink for centralized error handling in backend.
+- Fallback remains `Session_Audit_Log` (`APPLICATION_ERROR` event) if this table is unavailable.
+- `Request_ID` should match API response field `request_id` and header `X-Request-ID`.
+
+**Indexes:**
+- `idx_app_errors_request_id` (Request_ID)
+- `idx_app_errors_code` (Error_Code)
+- `idx_app_errors_status` (Status_Code)
+- `idx_app_errors_severity` (Severity)
+- `idx_app_errors_path` (Request_Path)
+- `idx_app_errors_created` (Created_At)
+- `idx_app_errors_user_id` (User_ID)
+
+---
+
+### 22. NOTIFICATIONS
+In-app notifications (per-recipient rows) used for the bell icon dropdown + notifications inbox.
+
+| Field | Type | Required | Unique | Description |
+|-------|------|----------|--------|-------------|
+| ID | BIGINT | PK | Yes | Auto-generated record ID (ROWID) |
+| Recipient_Type | VARCHAR(20) | Yes | - | 'user' \| 'employee' |
+| Recipient_ID | BIGINT | Yes | - | Recipient ROWID (→ Users.ROWID or Employees.ROWID based on Recipient_Type) |
+| Audience_Source | VARCHAR(50) | Yes | - | Source kind: announcement, booking, payment, system |
+| Source_ID | VARCHAR(50) | - | - | Source record ID (ex: Announcement.ROWID) |
+| Title | VARCHAR(500) | Yes | - | Notification title |
+| Message | TEXT | Yes | - | Notification message |
+| Notification_Type | VARCHAR(20) | - | - | info \| success \| warning \| error |
+| Action_URL | VARCHAR(500) | - | - | HashRouter URL (ex: `#/announcements`) |
+| Is_Read | VARCHAR(10) | - | - | 'true' \| 'false' (string boolean) |
+| Read_At | DATETIME | - | - | Timestamp when marked read (UTC) |
+| Created_At | DATETIME | Yes | - | Event timestamp (UTC ISO format) |
+| Expires_At | DATETIME | - | - | Optional expiry for time-bound notifications |
+| Created_Time | DATETIME | Auto | - | Record creation time |
+
+**Notes:**
+- Always scope queries using `(Recipient_Type, Recipient_ID)` derived from the current session.
+- Bell dropdown should default to showing the last 30 days: `Created_At >= now() - 30 days`.
+
+**Indexes:**
+- `idx_notifications_recipient_created` (Recipient_Type, Recipient_ID, Created_At)
+- `idx_notifications_recipient_unread` (Recipient_Type, Recipient_ID, Is_Read, Created_At)
+- `idx_notifications_source` (Audience_Source, Source_ID)
 
 ---
 

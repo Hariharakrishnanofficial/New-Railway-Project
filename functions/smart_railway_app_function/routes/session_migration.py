@@ -8,12 +8,12 @@ Usage:
 Tables Created:
     - Sessions: Server-side session storage
     - Session_Audit_Log: Session event tracking
-"""
+role/permission as configuratable """
 
 import logging
 from flask import Blueprint, jsonify
 
-from core.session_middleware import require_session_admin
+from core.permission_validator import require_permission
 from repositories.cloudscale_repository import cloudscale_repo
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ Event Types:
 
 
 @session_migration_bp.route('/admin/migrate/sessions', methods=['POST'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def migrate_sessions():
     """
     Verify session tables exist and are accessible.
@@ -146,7 +146,7 @@ def migrate_sessions():
 
 
 @session_migration_bp.route('/admin/migrate/sessions/schema', methods=['GET'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def get_session_schema():
     """Get the schema definitions for session tables."""
     return jsonify({
@@ -191,7 +191,7 @@ def get_session_schema():
 
 # Sample data for testing
 @session_migration_bp.route('/admin/migrate/sessions/test', methods=['POST'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def test_session_tables():
     """
     Test session table operations with sample data.

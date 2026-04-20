@@ -35,13 +35,14 @@ from core.security import (
 )
 from core.session_middleware import (
     require_session,
-    require_session_admin,
     get_current_user_id,
     get_current_user_email,
     get_current_session_id,
     get_current_csrf_token,
     get_current_user_type,
 )
+from core.permission_validator import require_permission
+from services.employee_service import get_permissions_for_role
 from services.session_service import (
     create_session,
     revoke_session,
@@ -132,10 +133,19 @@ def _build_user_response(user_row: dict) -> dict:
         'email': user_row.get('Email', ''),
         'phoneNumber': user_row.get('Phone_Number', ''),
         'role': user_row.get('Role', 'User'),
+        'permissions': {
+            'modules': {},
+            'admin_access': False,
+            'can_invite_employees': False,
+        },
         'accountStatus': user_row.get('Account_Status', 'Active'),
         'dateOfBirth': user_row.get('Date_of_Birth', ''),
         'address': user_row.get('Address', ''),
     }
+
+
+def _permissions_for_employee_role(role_value: str) -> dict:
+    return get_permissions_for_role(role_value)
 
 
 def _get_client_ip() -> str:
@@ -533,6 +543,7 @@ def employee_login():
         # Use ROWID from Employees table as the session user_id
         employee_row_id = str(employee.get('row_id'))
         role = employee.get('role', 'EMPLOYEE')
+        permissions = _permissions_for_employee_role(role)
 
         # Step 2: Create server-side session
         session_id, csrf_token = create_session(
@@ -555,6 +566,7 @@ def employee_login():
             'department': employee.get('department'),
             'designation': employee.get('designation'),
             'phoneNumber': employee.get('phone_number'),
+            'permissions': permissions,
             'type': 'employee',
         }
 
@@ -762,16 +774,16 @@ def session_validate():
             if account_status != 'Active':
                 return jsonify({'status': 'error', 'message': f'Account is {account_status}'}), 403
             
-            # Note: Permissions field doesn't exist in current Employees table
-            # Using empty permissions for now
-            permissions = {}
+            role_value = employee.get('Role', 'Employee')
+            normalized_role = 'Admin' if str(role_value).strip().lower() == 'admin' else 'Employee'
+            permissions = _permissions_for_employee_role(normalized_role)
             
             employee_response = {
                 'id': str(employee.get('ROWID')),
                 'employeeId': employee.get('Employee_ID'),
                 'fullName': employee.get('Full_Name'),
                 'email': employee.get('Email'),
-                'role': employee.get('Role', 'EMPLOYEE'),
+                'role': 'ADMIN' if normalized_role == 'Admin' else 'EMPLOYEE',
                 'department': employee.get('Department'),
                 'designation': employee.get('Designation'),
                 'phoneNumber': employee.get('Phone_Number'),
@@ -1105,7 +1117,7 @@ def regenerate_csrf():
 # ══════════════════════════════════════════════════════════════════════════════
 
 @session_auth_bp.route('/session/admin/sessions', methods=['GET'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def admin_list_all_sessions():
     """List all active sessions (admin only)."""
     try:
@@ -1129,7 +1141,7 @@ def admin_list_all_sessions():
 
 
 @session_auth_bp.route('/session/admin/sessions/<session_id>/revoke', methods=['POST'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def admin_force_revoke_session(session_id: str):
     """Force revoke any session (admin only)."""
     admin_id = get_current_user_id()
@@ -1151,7 +1163,7 @@ def admin_force_revoke_session(session_id: str):
 
 
 @session_auth_bp.route('/session/admin/users/<user_id>/sessions/revoke-all', methods=['POST'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def admin_revoke_user_sessions(user_id: str):
     """Revoke all sessions for a specific user (admin only)."""
     try:
@@ -1171,7 +1183,7 @@ def admin_revoke_user_sessions(user_id: str):
 
 
 @session_auth_bp.route('/session/admin/cleanup', methods=['POST'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def admin_cleanup_sessions():
     """Trigger cleanup of expired sessions (admin only)."""
     try:
@@ -1191,7 +1203,7 @@ def admin_cleanup_sessions():
 
 
 @session_auth_bp.route('/session/admin/stats', methods=['GET'])
-@require_session_admin
+@require_permission('settings', 'edit')
 def admin_session_stats():
     """Get session statistics (admin only)."""
     try:
